@@ -9,14 +9,23 @@
     }
   ],
   "autoload": {
-    "psr-4": {
-      "Zion\\": [
-        "src/"
-      ]
-    }
+      "psr-4": {
+          "Zion\\Memory\\": "src/"
+      }
+  },
+  "autoload-dev": {
+      "psr-4": {
+          "Zion\\Memory\\Tests\\": "tests/"
+      }
+  },
+  "scripts": {
+      "test": "phpunit",
+      "test-coverage": "phpunit --coverage-html coverage"
   },
   "config": {
     "process-timeout": 600,
+    "optimize-autoloader": true,
+    "sort-packages": true,
     "allow-plugins": {
       "php-http/discovery": true
     }
@@ -24,7 +33,14 @@
   "minimum-stability": "stable",
   "prefer-stable": true,
   "require": {
-    "php": ">=8.1"
+    "php": ">=8.1",
+    "ext-json": "*",
+    "psr/log": "^3.0",
+    "ramsey/uuid": "^4.7"
+  },
+  "require-dev": {
+      "phpunit/phpunit": "^10.0",
+      "mockery/mockery": "^1.6"
   },
   "type": "library"
 }

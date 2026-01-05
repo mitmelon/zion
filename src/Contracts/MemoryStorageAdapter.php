@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace BankingAI\Memory\Contracts;
+namespace Zion\Memory\Contracts;
 
 /**
  * Interface MemoryStorageAdapter
@@ -11,7 +11,7 @@ namespace BankingAI\Memory\Contracts;
  * Implementations can be file-based, database-based (MySQL, MongoDB), etc.
  * All operations must be tenant-isolated.
  * 
- * @package BankingAI\Memory\Contracts
+ * @package Zion\Memory\Contracts
  */
 interface MemoryStorageAdapter
 {
