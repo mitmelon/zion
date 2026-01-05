@@ -35,7 +35,7 @@ A production-ready PHP implementation of a **Hybrid AI Memory Architecture** com
 ## Installation
 
 ```bash
-composer require zion/ai-memory
+composer require mitmelon/ai-m
 ```
 
 Or clone and install dependencies:
