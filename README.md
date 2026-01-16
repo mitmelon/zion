@@ -89,7 +89,7 @@ ZionXMemory v2 extends the proven v1 architecture with **adaptive memory capabil
 ### Installation
 
 ```bash
-composer require zionxmemory/core:^2.0
+composer require mitmelon/zionxmemory
 ```
 
 ### Basic Usage (v2)
@@ -106,8 +106,10 @@ $storage->connect(['host' => '127.0.0.1', 'port' => 6379]);
 
 $ai = new GeminiAdapter();
 $ai->configure([
-    'api_key' => 'your-key',
-    'model' => 'gemini-pro'
+    'api_key' => getenv('GEMINI_API_KEY'),
+    'base_url' => getenv('GEMINI_BASE_URL') ?: null,
+    'model' => getenv('GEMINI_MODEL') ?: 'gemini',
+    'retry' => ['max_attempts' => 3, 'base_delay_ms' => 200]
 ]);
 
 $audit = new AuditLogger($storage);
