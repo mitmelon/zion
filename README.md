@@ -6,10 +6,6 @@
 
   ## Next-Generation Epistemic Memory Infrastructure with Adaptive Intelligence
 
-  **Version:** 2.0.0  
-  **License:** MIT  
-  **Status:** Production-Ready
-
 </div>
 
 > ### ⚠️ Work in Progress — Unstable
