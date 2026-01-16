@@ -2,13 +2,13 @@
   
   <img src="asset/brand/logo.jpg" alt="ZionXMemory Logo" width="200"/>
 
-    # 🧠 ZionXMemory v2
+  # 🧠 ZionXMemory v2
 
-    ## Next-Generation Epistemic Memory Infrastructure with Adaptive Intelligence
+  ## Next-Generation Epistemic Memory Infrastructure with Adaptive Intelligence
 
-    **Version:** 2.0.0  
-    **License:** MIT  
-    **Status:** Production-Ready
+  **Version:** 2.0.0  
+  **License:** MIT  
+  **Status:** Production-Ready
 
 </div>
 
