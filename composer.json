@@ -1,21 +1,21 @@
 {
-  "name": "mitmelon/zion",
-  "description": "Zion is a hybrid AI memory architecture using Mindscape RAG (contextual narrative memory) and Graph RAG (structured factual memory) for banking-grade, multi-tenant applications",
+  "name": "mitmelon/zionxmemory",
+  "description": "Production-ready, research-backed, enterprise-grade adaptive memory system that maintains the core principle: ZionXMemory is memory infrastructure, not an agent controller.",
   "license": "MIT",
   "authors": [
     {
       "email": "manomitehq@gmail.com",
-      "name": "Manomite"
+      "name": "Manomite Limited"
     }
   ],
   "autoload": {
       "psr-4": {
-          "Zion\\Memory\\": "src/"
+          "ZionXMemory\\": "src/"
       }
   },
   "autoload-dev": {
       "psr-4": {
-          "Zion\\Memory\\Tests\\": "tests/"
+          "ZionXMemory\\Tests\\": "tests/"
       }
   },
   "scripts": {
