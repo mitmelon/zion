@@ -288,8 +288,6 @@ Memories automatically promoted/demoted based on:
 - ✅ Retention gating (controlled forgetting)
 - ✅ Temporal memory regularization
 
-**Reference:** Google Research - Titans + MIRAS Architecture
-
 ### ATLAS (Adaptive Long-Term Attention)
 
 **Key Concepts Implemented:**
@@ -298,16 +296,12 @@ Memories automatically promoted/demoted based on:
 - ✅ Representational capacity optimization
 - ✅ Priority-based retrieval
 
-**Reference:** arXiv - ATLAS Long-Term Memory Module
-
 ### ResFormer/Reservoir Memory
 
 **Key Concepts Implemented:**
 - ✅ Linear-time sequence handling
 - ✅ Variable-length context support
 - ✅ Efficient memory banks
-
-**Reference:** arXiv - ResFormer Architecture
 
 ### Logarithmic Memory Networks
 
@@ -548,10 +542,10 @@ composer test:scaling
 If you use ZionXMemory v2 in research:
 
 ```bibtex
-@software{zionxmemory_v2_2025,
+@software{zionxmemory_v2_2026,
   title={ZionXMemory v2: Adaptive Epistemic Memory Infrastructure},
   author={ZionXMemory Contributors},
-  year={2025},
+  year={2026},
   url={https://github.com/mitmelon/zionxmemory},
   note={Integrates MIRAS, ATLAS, ResFormer, and cognitive chunking principles}
 }
@@ -567,15 +561,6 @@ If you use ZionXMemory v2 in research:
 4. **ResFormer** - [Reservoir memory for sequences](https://arxiv.org/abs/2509.24074)
 5. **Logarithmic Memory** - [Efficient retrieval structures](https://arxiv.org/abs/2501.07905)
 6. **CHREST** - [Wikipedia](https://en.wikipedia.org/wiki/CHREST) - Cognitive chunking principles
-
----
-
-## Support
-
-- **Documentation:** https://docs.zionxmemory.io/v2
-- **Issues:** https://github.com/zionxmemory/core/issues
-- **Discord:** https://discord.gg/zionxmemory
-- **Email:** support@zionxmemory.io
 
 ---
 
