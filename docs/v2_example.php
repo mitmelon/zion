@@ -8,7 +8,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use ZionXMemory\Orchestrator\HybridMemoryV2;
-use ZionXMemory\Storage\RedisAdapter;
+use ZionXMemory\Storage\Adapters\RedisAdapter;
 use ZionXMemory\AI\Adapters\GeminiAdapter;
 use ZionXMemory\Audit\AuditLogger;
 
@@ -19,9 +19,9 @@ $storage->connect(['host' => '127.0.0.1', 'port' => 6379]);
 $ai = new GeminiAdapter();
 $ai->configure([
     'api_key' => getenv('GEMINI_API_KEY'),
-    'base_url' => getenv('GEMINI_BASE_URL') ?: null,
-    'model' => getenv('GEMINI_MODEL') ?: 'gemini',
-    'retry' => ['max_attempts' => 3, 'base_delay_ms' => 200]
+    'model' => 'gemini-3-flash-preview',
+    // Optional: tune retry behaviour for production
+    'retry' => ['max_attempts' => 4, 'base_delay_ms' => 250]
 ]);
 
 $audit = new AuditLogger($storage);

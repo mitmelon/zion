@@ -487,30 +487,6 @@ $memoryV2 = new HybridMemoryV2($storage, $ai, $audit, [
 
 ---
 
-## Testing
-
-```bash
-# Run all tests
-composer test
-
-# v2 adaptive tests
-composer test:adaptive
-
-# Surprise metric tests
-composer test:surprise
-
-# ATLAS priority tests  
-composer test:atlas
-
-# Retention gate tests
-composer test:retention
-
-# Long-term scaling tests
-composer test:scaling
-```
-
----
-
 ## Roadmap
 
 ### v2.1 (Q2 2026)

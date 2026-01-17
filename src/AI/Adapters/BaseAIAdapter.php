@@ -6,7 +6,7 @@ namespace ZionXMemory\AI\Adapters;
  * Provides canonical prompt builders used across adapters to ensure consistent
  * prompts and expected responses.
  * 
- * @package ZionXMemory\AI
+ * @package ZionXMemory\AI\Adapters
  * @author Manomite Limited
  * @license MIT
  * @version 1.0.0

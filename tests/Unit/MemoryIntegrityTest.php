@@ -1,10 +1,10 @@
 <?php
 
-namespace ZionXMemory\Tests;
+namespace ZionXMemory\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use ZionXMemory\Orchestrator\HybridMemory;
-use ZionXMemory\Storage\RedisAdapter;
+use ZionXMemory\Storage\Adapters\RedisAdapter;
 use ZionXMemory\AI\Adapters\GeminiAdapter;
 use ZionXMemory\Audit\AuditLogger;
 

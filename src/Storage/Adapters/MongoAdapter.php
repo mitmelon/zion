@@ -1,12 +1,12 @@
 <?php
-namespace ZionXMemory\Storage;
+namespace ZionXMemory\Storage\Adapters;
 
 use ZionXMemory\Contracts\StorageAdapterInterface;
 
 /**
  * MongoAdapter - Document storage for complex data
  * 
- * @package ZionXMemory\Storage
+ * @package ZionXMemory\Storage\Adapters
  * @author Manomite Limited
  * @license MIT
  * @version 1.0.0

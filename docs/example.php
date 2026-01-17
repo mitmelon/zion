@@ -18,8 +18,7 @@ $storage->connect([
 $ai = new GeminiAdapter();
 $ai->configure([
     'api_key' => getenv('GEMINI_API_KEY'),
-    'base_url' => getenv('GEMINI_BASE_URL') ?: '',
-    'model' => 'gemini-pro',
+    'model' => 'gemini-3-flash-preview',
     // Optional: tune retry behaviour for production
     'retry' => ['max_attempts' => 4, 'base_delay_ms' => 250]
 ]);

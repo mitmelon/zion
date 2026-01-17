@@ -1,14 +1,13 @@
 <?php
-namespace ZionXMemory\AI;
+namespace ZionXMemory\AI\Adapters;
 
 use ZionXMemory\Contracts\AIAdapterInterface;
-use ZionXMemory\AI\Adapters\BaseAIAdapter;
 
 /**
  * OpenAIAdapter - OpenAI integration
  * Supports GPT-4, GPT-4 Vision, and JSON mode
  * 
- * @package ZionXMemory\AI
+ * @package ZionXMemory\AI\Adapters
  * @author Manomite Limited
  * @license MIT
  * @version 1.0.0

@@ -1,5 +1,5 @@
 <?php
-namespace ZionXMemory\Storage;
+namespace ZionXMemory\Storage\Adapters;
 
 use ZionXMemory\Contracts\StorageAdapterInterface;
 
@@ -7,7 +7,7 @@ use ZionXMemory\Contracts\StorageAdapterInterface;
  * RedisAdapter - Fast in-memory storage
  * Primary for hot data, caching, and serving
  * 
- * @package ZionXMemory\Storage
+ * @package ZionXMemory\Storage\Adapters
  * @author Manomite Limited
  * @license MIT
  * @version 1.0.0

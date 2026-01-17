@@ -1,5 +1,7 @@
 <?php
 namespace ZionXMemory\Gnosis;
+use ZionXMemory\Contracts\StorageAdapterInterface;
+use ZionXMemory\Contracts\AIAdapterInterface;
 
 /**
  * ConfidenceTracker - Tracks confidence ranges over time
