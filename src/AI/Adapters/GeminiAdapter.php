@@ -53,6 +53,7 @@ class GeminiAdapter extends BaseAIAdapter implements AIAdapterInterface {
 
     public function summarize(string $content, array $options): string {
         $prompt = $options['prompt'] ?? $this->buildSummarizationPrompt($content, $options);
+
         $res = $this->callWithRetries(fn() => $this->client()->generativeModel(model: $this->model)->generateContent($prompt));
 
         if (is_object($res) && method_exists($res, 'text')) {
@@ -70,7 +71,7 @@ class GeminiAdapter extends BaseAIAdapter implements AIAdapterInterface {
         $res = $this->callWithRetries(fn() => $this->client()->generativeModel(model: $this->model)->withGenerationConfig($config)->generateContent($prompt));
 
         if (is_object($res) && method_exists($res, 'json')) {
-            $json = $res->json();
+            $json = $res->json(true);
             if (is_array($json)) return $json;
             if (is_string($json)) {
                 $parsed = $this->tryParseJson($json);
@@ -92,7 +93,7 @@ class GeminiAdapter extends BaseAIAdapter implements AIAdapterInterface {
         $res = $this->callWithRetries(fn() => $this->client()->generativeModel(model: $this->model)->withGenerationConfig($config)->generateContent($prompt));
 
         if (is_object($res) && method_exists($res, 'json')) {
-            $json = $res->json();
+            $json = $res->json(true);
             if (is_array($json)) return $json;
         }
 
@@ -111,7 +112,7 @@ class GeminiAdapter extends BaseAIAdapter implements AIAdapterInterface {
 
         $parsed = null;
         if (is_object($res) && method_exists($res, 'json')) {
-            $parsed = $res->json();
+            $parsed = $res->json(true);
         }
 
         if (!is_array($parsed) && is_object($res) && method_exists($res, 'text')) {
@@ -137,7 +138,7 @@ class GeminiAdapter extends BaseAIAdapter implements AIAdapterInterface {
         $res = $this->callWithRetries(fn() => $this->client()->generativeModel(model: $this->model)->withGenerationConfig($config)->generateContent($prompt));
 
         $parsed = null;
-        if (is_object($res) && method_exists($res, 'json')) $parsed = $res->json();
+        if (is_object($res) && method_exists($res, 'json')) $parsed = $res->json(true);
         if (!is_array($parsed) && is_object($res) && method_exists($res, 'text')) $parsed = $this->tryParseJson($res->text());
 
         if (is_array($parsed) && isset($parsed['min'], $parsed['max'], $parsed['mean'])) {

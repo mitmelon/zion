@@ -1,6 +1,6 @@
 <div align="center">
   
-  <img src="asset/brand/logo.jpg" alt="ZionXMemory Logo" width="200"/>
+  <img src="asset/brand/logo.png" alt="ZionXMemory Logo" width="200"/>
 
   # 🧠 ZionXMemory v2
 
@@ -92,7 +92,7 @@ composer require mitmelon/zionxmemory
 
 ```php
 use ZionXMemory\Orchestrator\HybridMemoryV2;
-use ZionXMemory\Storage\RedisAdapter;
+use ZionXMemory\Storage\Adapters\RedisAdapter;
 use ZionXMemory\AI\Adapters\GeminiAdapter;
 use ZionXMemory\Audit\AuditLogger;
 
