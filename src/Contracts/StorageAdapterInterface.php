@@ -17,4 +17,10 @@ interface StorageAdapterInterface {
     public function query(array $criteria): array;
     public function exists(string $key): bool;
     public function getMetadata(string $key): array;
+
+    // Set operations
+    public function addToSet(string $key, string $value, array $metadata = []): bool;
+    public function removeFromSet(string $key, string $value, array $metadata = []): bool;
+    public function getSetMembers(string $key): array;
+    public function isSetMember(string $key, string $value): bool;
 }
