@@ -73,15 +73,30 @@ class RedisAdapter implements StorageAdapterInterface {
         }
         
         $pattern = $criteria['pattern'] ?? '*';
-        $keys = $this->redis->keys($pattern);
-        
         $results = [];
-        foreach ($keys as $key) {
-            $value = $this->read($key);
-            if ($value !== null) {
-                $results[] = $value;
+        $iterator = null;
+        $seen = [];
+
+        do {
+            // Use SCAN instead of KEYS to avoid blocking the Redis server
+            $keys = $this->redis->scan($iterator, $pattern, 100);
+
+            if ($keys === false) {
+                break;
             }
-        }
+
+            foreach ($keys as $key) {
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+
+                $value = $this->read($key);
+                if ($value !== null) {
+                    $results[] = $value;
+                }
+            }
+        } while ($iterator > 0);
         
         return $results;
     }
