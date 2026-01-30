@@ -2,6 +2,8 @@
 namespace ZionXMemory\AI\Adapters;
 
 use ZionXMemory\Contracts\AIAdapterInterface;
+use GuzzleHttp\Client;
+use GuzzleHttp\Promise;
 
 /**
  * OpenAIAdapter - OpenAI integration
@@ -18,14 +20,24 @@ class OpenAIAdapter extends BaseAIAdapter implements AIAdapterInterface {
     private string $apiKey;
     private string $model;
     private string $baseUrl;
+    private ?Client $client = null;
     
     public function configure(array $config): void {
         $this->apiKey = $config['api_key'] ?? '';
         $this->model = $config['model'] ?? 'gpt-4';
-        $this->baseUrl = $config['base_url'] ?? 'https://api.openai.com/v1';
+        $this->baseUrl = rtrim($config['base_url'] ?? 'https://api.openai.com/v1', '/');
         if (!empty($config['retry']) && is_array($config['retry'])) {
             $this->setRetryOptions($config['retry']);
         }
+
+        $this->client = new Client([
+            'base_uri' => $this->baseUrl . '/',
+            'headers' => [
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Content-Type' => 'application/json'
+            ],
+            'timeout' => 30
+        ]);
     }
     
     public function summarize(string $content, array $options): string {
@@ -59,6 +71,41 @@ class OpenAIAdapter extends BaseAIAdapter implements AIAdapterInterface {
         $result = json_decode($response['choices'][0]['message']['content'] ?? '', true);
         return $result['entities'] ?? [];
     }
+
+    public function extractEntitiesBatch(array $contents): array {
+        $promises = [];
+        foreach ($contents as $key => $content) {
+            $prompt = $this->buildEntitiesPrompt($content);
+            $promises[$key] = $this->client->postAsync('chat/completions', [
+                'json' => [
+                    'model' => $this->model,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $prompt]
+                    ],
+                    'response_format' => ['type' => 'json_object']
+                ]
+            ]);
+        }
+
+        $responses = Promise\Utils::settle($promises)->wait();
+        $results = [];
+
+        foreach ($responses as $key => $response) {
+            if ($response['state'] === 'fulfilled') {
+                try {
+                    $body = json_decode($response['value']->getBody(), true);
+                    $contentStr = $body['choices'][0]['message']['content'] ?? '{}';
+                    $parsed = json_decode($contentStr, true);
+                    $results[$key] = $parsed['entities'] ?? [];
+                } catch (\Throwable $e) {
+                    $results[$key] = [];
+                }
+            } else {
+                $results[$key] = [];
+            }
+        }
+        return $results;
+    }
     
     public function extractRelationships(string $content): array {
         $prompt = $this->buildRelationshipsPrompt($content);
@@ -74,6 +121,41 @@ class OpenAIAdapter extends BaseAIAdapter implements AIAdapterInterface {
         if (!is_array($response)) return [];
         $result = json_decode($response['choices'][0]['message']['content'] ?? '', true);
         return $result['relationships'] ?? [];
+    }
+
+    public function extractRelationshipsBatch(array $contents): array {
+        $promises = [];
+        foreach ($contents as $key => $content) {
+            $prompt = $this->buildRelationshipsPrompt($content);
+            $promises[$key] = $this->client->postAsync('chat/completions', [
+                'json' => [
+                    'model' => $this->model,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $prompt]
+                    ],
+                    'response_format' => ['type' => 'json_object']
+                ]
+            ]);
+        }
+
+        $responses = Promise\Utils::settle($promises)->wait();
+        $results = [];
+
+        foreach ($responses as $key => $response) {
+            if ($response['state'] === 'fulfilled') {
+                try {
+                    $body = json_decode($response['value']->getBody(), true);
+                    $contentStr = $body['choices'][0]['message']['content'] ?? '{}';
+                    $parsed = json_decode($contentStr, true);
+                    $results[$key] = $parsed['relationships'] ?? [];
+                } catch (\Throwable $e) {
+                    $results[$key] = [];
+                }
+            } else {
+                $results[$key] = [];
+            }
+        }
+        return $results;
     }
 
     public function extractClaims(string $content): array {
@@ -153,22 +235,25 @@ class OpenAIAdapter extends BaseAIAdapter implements AIAdapterInterface {
         ];
     }
     
-    // Summarization prompt builder is provided by BaseAIAdapter
-    
     private function makeRequest(string $endpoint, array $data): array {
-        $ch = curl_init("{$this->baseUrl}/{$endpoint}");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $this->apiKey
-        ]);
-        
-        $response = curl_exec($ch);
-        curl_close($ch);
-        
-        return json_decode($response, true) ?? [];
+        if (!$this->client) {
+             // Fallback if configure wasn't called (though it should be)
+             $this->client = new Client([
+                'base_uri' => $this->baseUrl . '/',
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ],
+                'timeout' => 30
+            ]);
+        }
+
+        try {
+            $response = $this->client->post($endpoint, ['json' => $data]);
+            return json_decode($response->getBody(), true) ?? [];
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     public function detectContradiction(string $claim1, string $claim2): ?bool {
