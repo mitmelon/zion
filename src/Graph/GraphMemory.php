@@ -72,6 +72,68 @@ class GraphMemory implements GraphAdapterInterface {
         
         return true;
     }
+
+    public function addNodes(string $tenantId, array $nodesData, int $timestamp): bool {
+        $items = [];
+        foreach ($nodesData as $data) {
+            $nodeId = $data['id'];
+            $type = $data['type'];
+            $properties = $data['properties'];
+
+            $node = new BeliefNode($nodeId, $type, $properties, $timestamp);
+            $key = $this->buildNodeKey($tenantId, $nodeId);
+
+            $items[] = [
+                'key' => $key,
+                'value' => $node->toArray(),
+                'metadata' => [
+                    'tenant' => $tenantId,
+                    'type' => 'node',
+                    'timestamp' => $timestamp
+                ]
+            ];
+
+            $this->audit->log($tenantId, 'graph_add_node', [
+                'node_id' => $nodeId,
+                'type' => $type
+            ], ['timestamp' => $timestamp]);
+        }
+
+        return $this->storage->writeMulti($items);
+    }
+
+    public function addEdges(string $tenantId, array $edgesData, int $timestamp): bool {
+        $items = [];
+        foreach ($edgesData as $data) {
+            $fromId = $data['from_id'];
+            $toId = $data['to_id'];
+            $relationType = $data['relation_type'];
+            $properties = $data['properties'];
+
+            $edgeId = $this->generateEdgeId($fromId, $toId, $relationType);
+            $edge = new RelationEdge($edgeId, $fromId, $toId, $relationType, $properties, $timestamp);
+
+            $key = $this->buildEdgeKey($tenantId, $edgeId);
+            $items[] = [
+                'key' => $key,
+                'value' => $edge->toArray(),
+                'metadata' => [
+                    'tenant' => $tenantId,
+                    'type' => 'edge',
+                    'timestamp' => $timestamp
+                ]
+            ];
+
+            $this->audit->log($tenantId, 'graph_add_edge', [
+                'edge_id' => $edgeId,
+                'from' => $fromId,
+                'to' => $toId,
+                'relation' => $relationType
+            ], ['timestamp' => $timestamp]);
+        }
+
+        return $this->storage->writeMulti($items);
+    }
     
     /**
      * Extract entities and relationships from content using AI
@@ -89,32 +151,51 @@ class GraphMemory implements GraphAdapterInterface {
             'edges_created' => []
         ];
         
+        $nodesData = [];
         // Store entities as nodes
         foreach ($entities as $entity) {
             $nodeId = $this->generateNodeId($entity['name'], $entity['type']);
             
-            $this->addNode($tenantId, $nodeId, $entity['type'], [
-                'name' => $entity['name'],
-                'attributes' => $entity['attributes'] ?? [],
-                'source_content' => $content,
-                'context' => $context
-            ], $timestamp);
+            $nodesData[] = [
+                'id' => $nodeId,
+                'type' => $entity['type'],
+                'properties' => [
+                    'name' => $entity['name'],
+                    'attributes' => $entity['attributes'] ?? [],
+                    'source_content' => $content,
+                    'context' => $context
+                ]
+            ];
             
             $results['nodes_created'][] = $nodeId;
         }
         
+        if (!empty($nodesData)) {
+            $this->addNodes($tenantId, $nodesData, $timestamp);
+        }
+
+        $edgesData = [];
         // Store relationships as edges
         foreach ($relationships as $relation) {
             $fromId = $this->generateNodeId($relation['from'], $relation['from_type']);
             $toId = $this->generateNodeId($relation['to'], $relation['to_type']);
             
-            $this->addEdge($tenantId, $fromId, $toId, $relation['type'], [
-                'confidence' => $relation['confidence'] ?? 0.8,
-                'source_content' => $content,
-                'context' => $context
-            ], $timestamp);
+            $edgesData[] = [
+                'from_id' => $fromId,
+                'to_id' => $toId,
+                'relation_type' => $relation['type'],
+                'properties' => [
+                    'confidence' => $relation['confidence'] ?? 0.8,
+                    'source_content' => $content,
+                    'context' => $context
+                ]
+            ];
             
             $results['edges_created'][] = "{$fromId}->{$toId}";
+        }
+
+        if (!empty($edgesData)) {
+            $this->addEdges($tenantId, $edgesData, $timestamp);
         }
         
         return $results;

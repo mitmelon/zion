@@ -61,6 +61,40 @@ class MongoAdapter implements StorageAdapterInterface {
             return false;
         }
     }
+
+    public function writeMulti(array $items): bool {
+        if (!$this->connected) {
+            return false;
+        }
+
+        try {
+            $operations = [];
+            foreach ($items as $item) {
+                $document = [
+                    '_id' => $item['key'],
+                    'value' => $item['value'],
+                    'metadata' => $item['metadata'],
+                    'written_at' => time()
+                ];
+
+                $operations[] = [
+                    'replaceOne' => [
+                        ['_id' => $item['key']],
+                        $document,
+                        ['upsert' => true]
+                    ]
+                ];
+            }
+
+            if (!empty($operations)) {
+                $this->collection->bulkWrite($operations);
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
     
     public function read(string $key): mixed {
         if (!$this->connected) {
