@@ -14,6 +14,7 @@ interface StorageAdapterInterface {
     public function connect(array $config): bool;
     public function write(string $key, mixed $value, array $metadata): bool;
     public function read(string $key): mixed;
+    public function readMulti(array $keys): array;
     public function query(array $criteria): array;
     public function exists(string $key): bool;
     public function getMetadata(string $key): array;

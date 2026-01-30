@@ -66,6 +66,31 @@ class RedisAdapter implements StorageAdapterInterface {
         $decoded = json_decode($data, true);
         return $decoded['value'] ?? null;
     }
+
+    public function readMulti(array $keys): array {
+        if (!$this->connected || empty($keys)) {
+            return [];
+        }
+
+        $values = $this->redis->mget($keys);
+
+        if ($values === false) {
+            return [];
+        }
+
+        $results = [];
+        foreach ($keys as $i => $key) {
+            $val = $values[$i];
+            if ($val !== false && $val !== null) {
+                $decoded = json_decode($val, true);
+                if (isset($decoded['value'])) {
+                    $results[$key] = $decoded['value'];
+                }
+            }
+        }
+
+        return $results;
+    }
     
     public function query(array $criteria): array {
         if (!$this->connected) {
