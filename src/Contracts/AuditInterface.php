@@ -12,6 +12,7 @@ namespace ZionXMemory\Contracts;
 
 interface AuditInterface {
     public function log(string $tenantId, string $operation, array $data, array $context): string;
+    public function logBatch(string $tenantId, array $events): array;
     public function verify(string $auditId): bool;
     public function getAuditTrail(string $tenantId, array $filters): array;
     public function replay(string $tenantId, int $fromTimestamp, int $toTimestamp): array;

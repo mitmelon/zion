@@ -58,6 +58,57 @@ class AuditLogger implements AuditInterface {
         
         return $auditId;
     }
+
+    public function logBatch(string $tenantId, array $events): array {
+        // Get previous hash for chain integrity - READ ONCE
+        $previousHash = $this->getLastAuditHash($tenantId);
+
+        $resultIds = [];
+        $currentPreviousHash = $previousHash;
+        $lastTimestamp = time();
+
+        foreach ($events as $event) {
+            $auditId = $this->generateAuditId();
+            $operation = $event['operation'];
+            $data = $event['data'];
+            $context = $event['context'] ?? [];
+            $timestamp = $context['timestamp'] ?? time();
+            $lastTimestamp = $timestamp;
+
+            $auditRecord = [
+                'id' => $auditId,
+                'tenant_id' => $tenantId,
+                'operation' => $operation,
+                'data' => $data,
+                'context' => $context,
+                'timestamp' => $timestamp,
+                'previous_hash' => $currentPreviousHash,
+                'hash' => null
+            ];
+
+            // Calculate hash for tamper evidence
+            $auditRecord['hash'] = $this->calculateHash($auditRecord);
+            $currentPreviousHash = $auditRecord['hash'];
+
+            // Store audit record
+            $key = $this->buildAuditKey($tenantId, $auditId);
+            $this->storage->write($key, $auditRecord, [
+                'tenant' => $tenantId,
+                'type' => 'audit',
+                'immutable' => true,
+                'timestamp' => $timestamp
+            ]);
+
+            $resultIds[] = $auditId;
+        }
+
+        // Update last hash reference - WRITE ONCE
+        if (!empty($resultIds)) {
+            $this->updateLastHash($tenantId, $currentPreviousHash, $lastTimestamp);
+        }
+
+        return $resultIds;
+    }
     
     public function verify(string $auditId): bool {
         // Verify audit record integrity
