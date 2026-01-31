@@ -105,6 +105,35 @@ class GeminiAdapter extends BaseAIAdapter implements AIAdapterInterface {
         return [];
     }
 
+    public function extractStructure(string $content): array {
+        $prompt = $this->buildStructurePrompt($content);
+        $config = new GenerationConfig(responseMimeType: ResponseMimeType::APPLICATION_JSON);
+        $res = $this->callWithRetries(fn() => $this->client()->generativeModel(model: $this->model)->withGenerationConfig($config)->generateContent($prompt));
+
+        $parsed = null;
+        if (is_object($res) && method_exists($res, 'json')) $parsed = $res->json(true);
+        if (!is_array($parsed) && is_object($res) && method_exists($res, 'text')) $parsed = $this->tryParseJson($res->text());
+
+        if (is_array($parsed)) {
+            return [
+                'entities' => $parsed['entities'] ?? [],
+                'relations' => $parsed['relationships'] ?? []
+            ];
+        }
+        return ['entities' => [], 'relations' => []];
+    }
+
+    /**
+     * Override to optimize batch processing using single structure extraction calls
+     */
+    public function extractStructureBatch(array $contents): array {
+        $results = [];
+        foreach ($contents as $key => $content) {
+            $results[$key] = $this->extractStructure($content);
+        }
+        return $results;
+    }
+
     public function extractClaims(string $content): array {
         $prompt = $this->buildClaimsPrompt($content);
         $config = new GenerationConfig(responseMimeType: ResponseMimeType::APPLICATION_JSON);

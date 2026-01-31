@@ -169,8 +169,7 @@ class GraphIngestor implements GraphIngestorInterface {
         }
 
         try {
-            $entitiesBatch = $this->ai->extractEntitiesBatch($texts);
-            $relationsBatch = $this->ai->extractRelationshipsBatch($texts);
+            $structuresBatch = $this->ai->extractStructureBatch($texts);
         } catch (\Exception $e) {
             return []; // Fallback to individual extraction
         }
@@ -178,8 +177,9 @@ class GraphIngestor implements GraphIngestorInterface {
         $results = [];
         foreach ($claims as $i => $claim) {
             $topic = $claim['topic'] ?? 'unknown';
-            $entities = $entitiesBatch[$i] ?? [];
-            $relations = $relationsBatch[$i] ?? [];
+            $structure = $structuresBatch[$i] ?? [];
+            $entities = $structure['entities'] ?? [];
+            $relations = $structure['relations'] ?? [];
 
             // Ensure topic is an entity
             if (!empty($topic) && $topic !== 'unknown') {
@@ -209,8 +209,9 @@ class GraphIngestor implements GraphIngestorInterface {
         
         // Use AI to extract structure
         try {
-            $entities = $this->ai->extractEntities($claimText);
-            $relations = $this->ai->extractRelationships($claimText);
+            $structure = $this->ai->extractStructure($claimText);
+            $entities = $structure['entities'] ?? [];
+            $relations = $structure['relations'] ?? [];
             
             // Ensure topic is an entity
             if (!empty($topic) && $topic !== 'unknown') {

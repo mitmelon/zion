@@ -72,6 +72,36 @@ class ClaudeAdapter extends BaseAIAdapter implements AIAdapterInterface {
         return json_decode($text, true) ?? [];
     }
 
+    public function extractStructure(string $content): array {
+        $prompt = $this->buildStructurePrompt($content);
+
+        $response = $this->callWithRetries(fn() => $this->makeRequest('messages', [
+            'model' => $this->model,
+            'max_tokens' => 4096,
+            'messages' => [
+                ['role' => 'user', 'content' => $prompt]
+            ]
+        ]));
+
+        $text = $response['content'][0]['text'] ?? '{}';
+        $result = json_decode($text, true) ?? [];
+        return [
+            'entities' => $result['entities'] ?? [],
+            'relations' => $result['relationships'] ?? []
+        ];
+    }
+
+    /**
+     * Override to optimize batch processing using single structure extraction calls
+     */
+    public function extractStructureBatch(array $contents): array {
+        $results = [];
+        foreach ($contents as $key => $content) {
+            $results[$key] = $this->extractStructure($content);
+        }
+        return $results;
+    }
+
     public function extractClaims(string $content): array {
         $prompt = $this->buildClaimsPrompt($content);
 

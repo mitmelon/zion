@@ -48,6 +48,20 @@ class BaseAIAdapter {
         return "Extract relationships from the text. Return as JSON: [{\"from\": \"...\", \"from_type\": \"...\", \"to\": \"...\", \"to_type\": \"...\", \"type\": \"...\", \"confidence\": 0.0-1.0}]\n\n{$content}";
     }
 
+    protected function buildStructurePrompt(string $content): string {
+        return "Extract all entities and relationships from the following text. Return as JSON object: {\"entities\": [{\"name\": \"...\", \"type\": \"...\", \"attributes\": {...}}], \"relationships\": [{\"from\": \"...\", \"from_type\": \"...\", \"to\": \"...\", \"to_type\": \"...\", \"type\": \"...\", \"confidence\": 0.0-1.0}]}\n\n{$content}";
+    }
+
+    /**
+     * Default implementation for structure extraction (entities + relationships)
+     */
+    public function extractStructure(string $content): array {
+        return [
+            'entities' => $this->extractEntities($content),
+            'relations' => $this->extractRelationships($content)
+        ];
+    }
+
     /**
      * Default sequential implementation for batch entity extraction
      */
@@ -66,6 +80,23 @@ class BaseAIAdapter {
         $results = [];
         foreach ($contents as $key => $content) {
             $results[$key] = $this->extractRelationships($content);
+        }
+        return $results;
+    }
+
+    /**
+     * Default sequential implementation for batch structure extraction
+     */
+    public function extractStructureBatch(array $contents): array {
+        $entitiesBatch = $this->extractEntitiesBatch($contents);
+        $relationsBatch = $this->extractRelationshipsBatch($contents);
+
+        $results = [];
+        foreach ($contents as $key => $content) {
+            $results[$key] = [
+                'entities' => $entitiesBatch[$key] ?? [],
+                'relations' => $relationsBatch[$key] ?? []
+            ];
         }
         return $results;
     }

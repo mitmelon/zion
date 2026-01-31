@@ -15,8 +15,10 @@ interface AIAdapterInterface {
     public function summarize(string $content, array $options): string;
     public function extractEntities(string $content): array;
     public function extractRelationships(string $content): array;
+    public function extractStructure(string $content): array;
     public function extractEntitiesBatch(array $contents): array;
     public function extractRelationshipsBatch(array $contents): array;
+    public function extractStructureBatch(array $contents): array;
     public function extractClaims(string $content): array;
     public function scoreEpistemicConfidence(string $claim, array $context): array;
     public function detectContradiction(string $claim1, string $claim2): ?bool;

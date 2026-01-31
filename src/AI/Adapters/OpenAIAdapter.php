@@ -123,6 +123,25 @@ class OpenAIAdapter extends BaseAIAdapter implements AIAdapterInterface {
         return $result['relationships'] ?? [];
     }
 
+    public function extractStructure(string $content): array {
+        $prompt = $this->buildStructurePrompt($content);
+
+        $response = $this->callWithRetries(fn() => $this->makeRequest('chat/completions', [
+            'model' => $this->model,
+            'messages' => [
+                ['role' => 'user', 'content' => $prompt]
+            ],
+            'response_format' => ['type' => 'json_object']
+        ]));
+
+        if (!is_array($response)) return ['entities' => [], 'relations' => []];
+        $result = json_decode($response['choices'][0]['message']['content'] ?? '', true);
+        return [
+            'entities' => $result['entities'] ?? [],
+            'relations' => $result['relationships'] ?? []
+        ];
+    }
+
     public function extractRelationshipsBatch(array $contents): array {
         $promises = [];
         foreach ($contents as $key => $content) {
@@ -153,6 +172,44 @@ class OpenAIAdapter extends BaseAIAdapter implements AIAdapterInterface {
                 }
             } else {
                 $results[$key] = [];
+            }
+        }
+        return $results;
+    }
+
+    public function extractStructureBatch(array $contents): array {
+        $promises = [];
+        foreach ($contents as $key => $content) {
+            $prompt = $this->buildStructurePrompt($content);
+            $promises[$key] = $this->client->postAsync('chat/completions', [
+                'json' => [
+                    'model' => $this->model,
+                    'messages' => [
+                        ['role' => 'user', 'content' => $prompt]
+                    ],
+                    'response_format' => ['type' => 'json_object']
+                ]
+            ]);
+        }
+
+        $responses = Promise\Utils::settle($promises)->wait();
+        $results = [];
+
+        foreach ($responses as $key => $response) {
+            if ($response['state'] === 'fulfilled') {
+                try {
+                    $body = json_decode($response['value']->getBody(), true);
+                    $contentStr = $body['choices'][0]['message']['content'] ?? '{}';
+                    $parsed = json_decode($contentStr, true);
+                    $results[$key] = [
+                        'entities' => $parsed['entities'] ?? [],
+                        'relations' => $parsed['relationships'] ?? []
+                    ];
+                } catch (\Throwable $e) {
+                    $results[$key] = ['entities' => [], 'relations' => []];
+                }
+            } else {
+                $results[$key] = ['entities' => [], 'relations' => []];
             }
         }
         return $results;
