@@ -198,12 +198,18 @@ class InstitutionalMemorySeparator implements InstitutionalMemoryInterface {
         $key = "institutional:{$tenantId}:{$claim['id']}";
         
         $institutional = $claim;
-        $institutional['promoted_at'] = time();
+        $timestamp = time();
+        $institutional['promoted_at'] = $timestamp;
         $institutional['institutional'] = true;
         
         $this->storage->write($key, $institutional, [
             'tenant' => $tenantId,
             'type' => 'institutional_memory'
         ]);
+
+        // Add to daily index for efficient trend calculation
+        $dayKey = date('Y-m-d', $timestamp);
+        $indexKey = "institutional_index:{$tenantId}:daily:{$dayKey}";
+        $this->storage->addToSet($indexKey, $claim['id'], ['tenant' => $tenantId, 'type' => 'institutional_index']);
     }
 }

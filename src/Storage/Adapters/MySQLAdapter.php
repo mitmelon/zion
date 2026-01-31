@@ -259,4 +259,5 @@ class MySQLAdapter implements StorageAdapterInterface {
         }
         return in_array($value, $current);
     }
+
 }

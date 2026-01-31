@@ -263,4 +263,5 @@ class PostgresAdapter implements StorageAdapterInterface {
         }
         return in_array($value, $current);
     }
+
 }

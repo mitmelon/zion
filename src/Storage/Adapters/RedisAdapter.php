@@ -270,4 +270,5 @@ class RedisAdapter implements StorageAdapterInterface {
             return false;
         }
     }
+
 }

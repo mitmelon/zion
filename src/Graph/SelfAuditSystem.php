@@ -191,9 +191,16 @@ class SelfAuditSystem implements SelfAuditInterface {
         $prevStart = $now - (2 * $week);
         $prevEnd = $lastStart - 1;
 
-        // Get all institutional items for tenant
-        $pattern = "institutional:{$tenantId}:*";
-        $items = $this->storage->query(['pattern' => $pattern]);
+        // Optimization: Try to use time-bucketed indices if available
+        $indexedItems = $this->fetchItemsFromIndices($tenantId, $prevStart, $now);
+
+        if ($indexedItems !== null) {
+            $items = $indexedItems;
+        } else {
+            // Fallback: Scan all items (slow)
+            $pattern = "institutional:{$tenantId}:*";
+            $items = $this->storage->query(['pattern' => $pattern]);
+        }
 
         $lastCount = 0;
         $prevCount = 0;
@@ -249,5 +256,39 @@ class SelfAuditSystem implements SelfAuditInterface {
         }
 
         return $trend;
+    }
+
+    private function fetchItemsFromIndices(string $tenantId, int $start, int $end): ?array {
+        // Safety check: Ensure migration has run for this tenant
+        // Without migration, indices might be partial or missing, leading to incorrect calculations
+        if (!$this->storage->exists("institutional_index:migration_complete:{$tenantId}")) {
+            return null;
+        }
+
+        $startDate = new \DateTime("@$start");
+        $endDate = new \DateTime("@$end");
+        $startDate->setTime(0, 0, 0);
+        $endDate->setTime(23, 59, 59);
+
+        $ids = [];
+
+        $current = clone $startDate;
+        while ($current <= $endDate) {
+             $key = "institutional_index:{$tenantId}:daily:" . $current->format('Y-m-d');
+             // We can optimistically call getSetMembers. If key doesn't exist, it returns empty array.
+             // Since migration is confirmed, empty array means no items for that day.
+             $dayIds = $this->storage->getSetMembers($key);
+             foreach ($dayIds as $id) {
+                 $ids[$id] = true;
+             }
+             $current->modify('+1 day');
+        }
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        $keys = array_map(fn($id) => "institutional:{$tenantId}:{$id}", array_keys($ids));
+        return $this->storage->readMulti($keys);
     }
 }
