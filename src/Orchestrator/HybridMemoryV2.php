@@ -420,7 +420,7 @@ class HybridMemoryV2 {
         
         $contradictions = [];
         foreach ($beliefs as $belief) {
-            $c = $this->gnosis->findContradictions($tenantId, $belief['id']);
+            $c = $this->gnosis->findContradictions($tenantId, $belief, $beliefs);
             if (!empty($c)) {
                 $contradictions[] = [
                     'belief_id' => $belief['id'],

@@ -181,16 +181,20 @@ class EpistemicState implements GnosisInterface {
         return $history;
     }
     
-    public function findContradictions(string $tenantId, string $beliefId): array {
-        $key = $this->buildBeliefKey($tenantId, $beliefId);
-        $belief = $this->storage->read($key);
+    public function findContradictions(string $tenantId, string|array $beliefOrId, ?array $allBeliefs = null): array {
+        if (is_array($beliefOrId)) {
+            $belief = $beliefOrId;
+        } else {
+            $key = $this->buildBeliefKey($tenantId, $beliefOrId);
+            $belief = $this->storage->read($key);
+        }
         
         if (!$belief) {
             return [];
         }
         
         // Find contradicting beliefs
-        return $this->contradictions->find($tenantId, $belief['claim'], $belief);
+        return $this->contradictions->find($tenantId, $belief['claim'], $belief, $allBeliefs);
     }
     
     public function getEpistemicSnapshot(string $tenantId, int $timestamp): array {
