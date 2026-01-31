@@ -74,6 +74,25 @@ class MongoAdapter implements StorageAdapterInterface {
             return null;
         }
     }
+
+    public function readMulti(array $keys): array {
+        if (!$this->connected || empty($keys)) {
+            return [];
+        }
+
+        try {
+            $cursor = $this->collection->find(['_id' => ['$in' => $keys]]);
+
+            $results = [];
+            foreach ($cursor as $document) {
+                $results[$document['_id']] = $document['value'];
+            }
+
+            return $results;
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
     
     public function query(array $criteria): array {
         if (!$this->connected) {

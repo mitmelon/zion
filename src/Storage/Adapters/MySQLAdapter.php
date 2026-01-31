@@ -84,6 +84,29 @@ class MySQLAdapter implements StorageAdapterInterface {
             return null;
         }
     }
+
+    public function readMulti(array $keys): array {
+        if (!$this->connected || empty($keys)) {
+            return [];
+        }
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($keys), '?'));
+            $stmt = $this->connection->prepare(
+                "SELECT `key`, `value` FROM {$this->tableName} WHERE `key` IN ($placeholders)"
+            );
+            $stmt->execute(array_values($keys));
+
+            $results = [];
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $results[$row['key']] = json_decode($row['value'], true);
+            }
+
+            return $results;
+        } catch (\PDOException $e) {
+            return [];
+        }
+    }
     
     public function query(array $criteria): array {
         if (!$this->connected) {

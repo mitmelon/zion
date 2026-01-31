@@ -117,12 +117,21 @@ class GraphStore implements GraphStoreInterface {
         $indexKey = "graph:index:{$tenantId}:relations:{$entityId}";
         $relationIds = $this->storage->getSetMembers($indexKey);
         
-        $relations = [];
+        if (empty($relationIds)) {
+            return [];
+        }
+
+        $keys = [];
         foreach ($relationIds as $relId) {
-            $key = $this->buildRelationKey($tenantId, $relId);
-            $relation = $this->storage->read($key);
-            if ($relation) {
-                $relations[] = $relation;
+            $keys[] = $this->buildRelationKey($tenantId, $relId);
+        }
+
+        $relationsMap = $this->storage->readMulti($keys);
+
+        $relations = [];
+        foreach ($keys as $key) {
+            if (isset($relationsMap[$key]) && $relationsMap[$key]) {
+                $relations[] = $relationsMap[$key];
             }
         }
         
