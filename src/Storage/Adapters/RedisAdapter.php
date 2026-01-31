@@ -120,6 +120,8 @@ class RedisAdapter implements StorageAdapterInterface {
         }
         
         $pattern = $criteria['pattern'] ?? '*';
+        $filters = $criteria['filter'] ?? [];
+
         $results = [];
         $iterator = null;
         $seen = [];
@@ -140,7 +142,51 @@ class RedisAdapter implements StorageAdapterInterface {
 
                 $value = $this->read($key);
                 if ($value !== null) {
-                    $results[] = $value;
+                    // Check filters
+                    $match = true;
+                    if (!empty($filters)) {
+                        foreach ($filters as $filter) {
+                            $field = $filter['field'];
+                            $op = $filter['operator'];
+                            $val = $filter['value'];
+
+                            $fieldVal = null;
+                            if (is_array($field)) {
+                                foreach ($field as $f) {
+                                    if (isset($value[$f])) {
+                                        $fieldVal = $value[$f];
+                                        break;
+                                    }
+                                }
+                            } else {
+                                $fieldVal = $value[$field] ?? null;
+                            }
+
+                            if ($fieldVal === null) {
+                                $match = false;
+                                break;
+                            }
+
+                            $isMatch = match($op) {
+                                '>=' => $fieldVal >= $val,
+                                '<=' => $fieldVal <= $val,
+                                '>' => $fieldVal > $val,
+                                '<' => $fieldVal < $val,
+                                '=' => $fieldVal == $val,
+                                '!=' => $fieldVal != $val,
+                                default => false
+                            };
+
+                            if (!$isMatch) {
+                                $match = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($match) {
+                        $results[] = $value;
+                    }
                 }
             }
         } while ($iterator > 0);
