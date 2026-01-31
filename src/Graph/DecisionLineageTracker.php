@@ -86,8 +86,8 @@ class DecisionLineageTracker implements DecisionLineageInterface {
      * Get all decisions depending on a claim
      */
     public function getDownstreamDecisions(string $tenantId, string $claimId): array {
-        $indexKey = $this->getClaimIndexKey($tenantId, $claimId);
-        $decisionIds = $this->storage->read($indexKey) ?? [];
+        $indexKey = "decision_index:{$tenantId}:claim:{$claimId}";
+        $decisionIds = $this->storage->getSetMembers($indexKey);
         
         $decisions = [];
         foreach ($decisionIds as $decisionId) {
@@ -162,13 +162,8 @@ class DecisionLineageTracker implements DecisionLineageInterface {
      * Index decision by claim for downstream tracking
      */
     private function indexDecisionByClaim(string $tenantId, string $claimId, string $decisionId): void {
-        $indexKey = $this->getClaimIndexKey($tenantId, $claimId);
-        $index = $this->storage->read($indexKey) ?? [];
-        
-        if (!in_array($decisionId, $index)) {
-            $index[] = $decisionId;
-            $this->storage->write($indexKey, $index, ['tenant' => $tenantId]);
-        }
+        $indexKey = "decision_index:{$tenantId}:claim:{$claimId}";
+        $this->storage->addToSet($indexKey, $decisionId, ['tenant' => $tenantId]);
     }
     
     private function buildLineageKey(string $tenantId, string $decisionId): string {
