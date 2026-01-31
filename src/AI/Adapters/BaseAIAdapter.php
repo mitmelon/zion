@@ -48,6 +48,28 @@ class BaseAIAdapter {
         return "Extract relationships from the text. Return as JSON: [{\"from\": \"...\", \"from_type\": \"...\", \"to\": \"...\", \"to_type\": \"...\", \"type\": \"...\", \"confidence\": 0.0-1.0}]\n\n{$content}";
     }
 
+    /**
+     * Default sequential implementation for batch entity extraction
+     */
+    public function extractEntitiesBatch(array $contents): array {
+        $results = [];
+        foreach ($contents as $key => $content) {
+            $results[$key] = $this->extractEntities($content);
+        }
+        return $results;
+    }
+
+    /**
+     * Default sequential implementation for batch relationship extraction
+     */
+    public function extractRelationshipsBatch(array $contents): array {
+        $results = [];
+        foreach ($contents as $key => $content) {
+            $results[$key] = $this->extractRelationships($content);
+        }
+        return $results;
+    }
+
     protected function buildClaimsPrompt(string $content): string {
         return "Extract explicit claims and factual statements from the following text. Return as a JSON array of strings or objects describing each claim (e.g. [{\"text\": \"...\", \"confidence\": 0.0-1.0}]). Prefer short, self-contained declarative sentences.\n\n{$content}";
     }

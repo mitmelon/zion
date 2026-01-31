@@ -35,6 +35,10 @@ class GraphMemory implements GraphAdapterInterface {
     }
     
     public function addNode(string $tenantId, string $nodeId, string $type, array $properties, int $timestamp): bool {
+        return $this->writeNode($tenantId, $nodeId, $type, $properties, $timestamp, true);
+    }
+
+    protected function writeNode(string $tenantId, string $nodeId, string $type, array $properties, int $timestamp, bool $logAudit): bool {
         $node = new BeliefNode($nodeId, $type, $properties, $timestamp);
         
         $key = $this->buildNodeKey($tenantId, $nodeId);
@@ -44,15 +48,21 @@ class GraphMemory implements GraphAdapterInterface {
             'timestamp' => $timestamp
         ]);
         
-        $this->audit->log($tenantId, 'graph_add_node', [
-            'node_id' => $nodeId,
-            'type' => $type
-        ], ['timestamp' => $timestamp]);
+        if ($logAudit) {
+            $this->audit->log($tenantId, 'graph_add_node', [
+                'node_id' => $nodeId,
+                'type' => $type
+            ], ['timestamp' => $timestamp]);
+        }
         
         return true;
     }
     
     public function addEdge(string $tenantId, string $fromId, string $toId, string $relationType, array $properties, int $timestamp): bool {
+        return $this->writeEdge($tenantId, $fromId, $toId, $relationType, $properties, $timestamp, true);
+    }
+
+    protected function writeEdge(string $tenantId, string $fromId, string $toId, string $relationType, array $properties, int $timestamp, bool $logAudit): bool {
         $edgeId = $this->generateEdgeId($fromId, $toId, $relationType);
         $edge = new RelationEdge($edgeId, $fromId, $toId, $relationType, $properties, $timestamp);
         
@@ -63,12 +73,14 @@ class GraphMemory implements GraphAdapterInterface {
             'timestamp' => $timestamp
         ]);
         
-        $this->audit->log($tenantId, 'graph_add_edge', [
-            'edge_id' => $edgeId,
-            'from' => $fromId,
-            'to' => $toId,
-            'relation' => $relationType
-        ], ['timestamp' => $timestamp]);
+        if ($logAudit) {
+            $this->audit->log($tenantId, 'graph_add_edge', [
+                'edge_id' => $edgeId,
+                'from' => $fromId,
+                'to' => $toId,
+                'relation' => $relationType
+            ], ['timestamp' => $timestamp]);
+        }
         
         return true;
     }
@@ -150,21 +162,28 @@ class GraphMemory implements GraphAdapterInterface {
             'nodes_created' => [],
             'edges_created' => []
         ];
+
+        $auditEvents = [];
         
         $nodesData = [];
         // Store entities as nodes
         foreach ($entities as $entity) {
             $nodeId = $this->generateNodeId($entity['name'], $entity['type']);
             
-            $nodesData[] = [
-                'id' => $nodeId,
-                'type' => $entity['type'],
-                'properties' => [
-                    'name' => $entity['name'],
-                    'attributes' => $entity['attributes'] ?? [],
-                    'source_content' => $content,
-                    'context' => $context
-                ]
+            $this->writeNode($tenantId, $nodeId, $entity['type'], [
+                'name' => $entity['name'],
+                'attributes' => $entity['attributes'] ?? [],
+                'source_content' => $content,
+                'context' => $context
+            ], $timestamp, false);
+
+            $auditEvents[] = [
+                'operation' => 'graph_add_node',
+                'data' => [
+                    'node_id' => $nodeId,
+                    'type' => $entity['type']
+                ],
+                'context' => ['timestamp' => $timestamp]
             ];
             
             $results['nodes_created'][] = $nodeId;
@@ -179,23 +198,30 @@ class GraphMemory implements GraphAdapterInterface {
         foreach ($relationships as $relation) {
             $fromId = $this->generateNodeId($relation['from'], $relation['from_type']);
             $toId = $this->generateNodeId($relation['to'], $relation['to_type']);
+            $edgeId = $this->generateEdgeId($fromId, $toId, $relation['type']);
             
-            $edgesData[] = [
-                'from_id' => $fromId,
-                'to_id' => $toId,
-                'relation_type' => $relation['type'],
-                'properties' => [
-                    'confidence' => $relation['confidence'] ?? 0.8,
-                    'source_content' => $content,
-                    'context' => $context
-                ]
+            $this->writeEdge($tenantId, $fromId, $toId, $relation['type'], [
+                'confidence' => $relation['confidence'] ?? 0.8,
+                'source_content' => $content,
+                'context' => $context
+            ], $timestamp, false);
+
+            $auditEvents[] = [
+                'operation' => 'graph_add_edge',
+                'data' => [
+                    'edge_id' => $edgeId,
+                    'from' => $fromId,
+                    'to' => $toId,
+                    'relation' => $relation['type']
+                ],
+                'context' => ['timestamp' => $timestamp]
             ];
             
             $results['edges_created'][] = "{$fromId}->{$toId}";
         }
 
-        if (!empty($edgesData)) {
-            $this->addEdges($tenantId, $edgesData, $timestamp);
+        if (!empty($auditEvents)) {
+            $this->audit->logBatch($tenantId, $auditEvents);
         }
         
         return $results;

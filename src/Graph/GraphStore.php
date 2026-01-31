@@ -95,7 +95,7 @@ class GraphStore implements GraphStoreInterface {
         
         if (isset($pattern['entity_type'])) {
             $indexKey = "graph:index:{$tenantId}:type:{$pattern['entity_type']}";
-            $entityIds = $this->storage->read($indexKey) ?? [];
+            $entityIds = $this->storage->getSetMembers($indexKey);
             
             foreach ($entityIds as $entityId) {
                 $entity = $this->getEntity($tenantId, $entityId);
@@ -115,14 +115,23 @@ class GraphStore implements GraphStoreInterface {
     
     public function getRelations(string $tenantId, string $entityId): array {
         $indexKey = "graph:index:{$tenantId}:relations:{$entityId}";
-        $relationIds = $this->storage->read($indexKey) ?? [];
+        $relationIds = $this->storage->getSetMembers($indexKey);
         
-        $relations = [];
+        if (empty($relationIds)) {
+            return [];
+        }
+
+        $keys = [];
         foreach ($relationIds as $relId) {
-            $key = $this->buildRelationKey($tenantId, $relId);
-            $relation = $this->storage->read($key);
-            if ($relation) {
-                $relations[] = $relation;
+            $keys[] = $this->buildRelationKey($tenantId, $relId);
+        }
+
+        $relationsMap = $this->storage->readMulti($keys);
+
+        $relations = [];
+        foreach ($keys as $key) {
+            if (isset($relationsMap[$key]) && $relationsMap[$key]) {
+                $relations[] = $relationsMap[$key];
             }
         }
         
@@ -144,21 +153,11 @@ class GraphStore implements GraphStoreInterface {
     
     private function updateEntityIndex(string $tenantId, string $entityId, string $type): void {
         $indexKey = "graph:index:{$tenantId}:type:{$type}";
-        $index = $this->storage->read($indexKey) ?? [];
-        
-        if (!in_array($entityId, $index)) {
-            $index[] = $entityId;
-            $this->storage->write($indexKey, $index, ['tenant' => $tenantId]);
-        }
+        $this->storage->addToSet($indexKey, $entityId, ['tenant' => $tenantId]);
     }
     
     private function updateRelationIndex(string $tenantId, string $entityId, string $relationId): void {
         $indexKey = "graph:index:{$tenantId}:relations:{$entityId}";
-        $index = $this->storage->read($indexKey) ?? [];
-        
-        if (!in_array($relationId, $index)) {
-            $index[] = $relationId;
-            $this->storage->write($indexKey, $index, ['tenant' => $tenantId]);
-        }
+        $this->storage->addToSet($indexKey, $relationId, ['tenant' => $tenantId]);
     }
 }

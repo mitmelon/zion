@@ -88,6 +88,31 @@ class RedisAdapter implements StorageAdapterInterface {
         $decoded = json_decode($data, true);
         return $decoded['value'] ?? null;
     }
+
+    public function readMulti(array $keys): array {
+        if (!$this->connected || empty($keys)) {
+            return [];
+        }
+
+        $values = $this->redis->mget($keys);
+
+        if ($values === false) {
+            return [];
+        }
+
+        $results = [];
+        foreach ($keys as $i => $key) {
+            $val = $values[$i];
+            if ($val !== false && $val !== null) {
+                $decoded = json_decode($val, true);
+                if (isset($decoded['value'])) {
+                    $results[$key] = $decoded['value'];
+                }
+            }
+        }
+
+        return $results;
+    }
     
     public function query(array $criteria): array {
         if (!$this->connected) {
@@ -95,15 +120,30 @@ class RedisAdapter implements StorageAdapterInterface {
         }
         
         $pattern = $criteria['pattern'] ?? '*';
-        $keys = $this->redis->keys($pattern);
-        
         $results = [];
-        foreach ($keys as $key) {
-            $value = $this->read($key);
-            if ($value !== null) {
-                $results[] = $value;
+        $iterator = null;
+        $seen = [];
+
+        do {
+            // Use SCAN instead of KEYS to avoid blocking the Redis server
+            $keys = $this->redis->scan($iterator, $pattern, 100);
+
+            if ($keys === false) {
+                break;
             }
-        }
+
+            foreach ($keys as $key) {
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+
+                $value = $this->read($key);
+                if ($value !== null) {
+                    $results[] = $value;
+                }
+            }
+        } while ($iterator > 0);
         
         return $results;
     }
@@ -129,5 +169,105 @@ class RedisAdapter implements StorageAdapterInterface {
         
         $decoded = json_decode($data, true);
         return $decoded['metadata'] ?? [];
+    }
+
+    public function addToSet(string $key, string $value, array $metadata = []): bool {
+        if (!$this->connected) {
+            return false;
+        }
+        try {
+            // Returns int (number of elements added) or false
+            return $this->redis->sAdd($key, $value) !== false;
+        } catch (\RedisException $e) {
+            if (strpos($e->getMessage(), 'WRONGTYPE') !== false) {
+                // Migration: Convert JSON String to Set
+                $oldData = $this->redis->get($key);
+                if ($oldData !== false) {
+                    $decoded = json_decode($oldData, true);
+                    $items = $decoded['value'] ?? [];
+
+                    $this->redis->del($key);
+                    if (is_array($items) && !empty($items)) {
+                        foreach ($items as $item) {
+                            $this->redis->sAdd($key, $item);
+                        }
+                    }
+                    return $this->redis->sAdd($key, $value) !== false;
+                }
+                // If old data invalid, just overwrite
+                $this->redis->del($key);
+                return $this->redis->sAdd($key, $value) !== false;
+            }
+            return false;
+        }
+    }
+
+    public function removeFromSet(string $key, string $value, array $metadata = []): bool {
+        if (!$this->connected) {
+            return false;
+        }
+        try {
+            return $this->redis->sRem($key, $value) !== false;
+        } catch (\RedisException $e) {
+            if (strpos($e->getMessage(), 'WRONGTYPE') !== false) {
+                // Migration
+                $oldData = $this->redis->get($key);
+                if ($oldData !== false) {
+                    $decoded = json_decode($oldData, true);
+                    $items = $decoded['value'] ?? [];
+
+                    $this->redis->del($key);
+                    if (is_array($items) && !empty($items)) {
+                        foreach ($items as $item) {
+                            if ($item !== $value) {
+                                $this->redis->sAdd($key, $item);
+                            }
+                        }
+                    }
+                    return true;
+                }
+                return true;
+            }
+            return false;
+        }
+    }
+
+    public function getSetMembers(string $key): array {
+        if (!$this->connected) {
+            return [];
+        }
+        try {
+            return $this->redis->sMembers($key);
+        } catch (\RedisException $e) {
+            if (strpos($e->getMessage(), 'WRONGTYPE') !== false) {
+                // Fallback: Read as JSON String
+                $oldData = $this->redis->get($key);
+                if ($oldData !== false) {
+                    $decoded = json_decode($oldData, true);
+                    return $decoded['value'] ?? [];
+                }
+            }
+            return [];
+        }
+    }
+
+    public function isSetMember(string $key, string $value): bool {
+        if (!$this->connected) {
+            return false;
+        }
+        try {
+            return $this->redis->sIsMember($key, $value);
+        } catch (\RedisException $e) {
+            if (strpos($e->getMessage(), 'WRONGTYPE') !== false) {
+                // Fallback: Read as JSON String
+                $oldData = $this->redis->get($key);
+                if ($oldData !== false) {
+                    $decoded = json_decode($oldData, true);
+                    $items = $decoded['value'] ?? [];
+                    return is_array($items) && in_array($value, $items);
+                }
+            }
+            return false;
+        }
     }
 }

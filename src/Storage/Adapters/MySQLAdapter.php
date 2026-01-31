@@ -119,6 +119,29 @@ class MySQLAdapter implements StorageAdapterInterface {
             return null;
         }
     }
+
+    public function readMulti(array $keys): array {
+        if (!$this->connected || empty($keys)) {
+            return [];
+        }
+
+        try {
+            $placeholders = implode(',', array_fill(0, count($keys), '?'));
+            $stmt = $this->connection->prepare(
+                "SELECT `key`, `value` FROM {$this->tableName} WHERE `key` IN ($placeholders)"
+            );
+            $stmt->execute(array_values($keys));
+
+            $results = [];
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $results[$row['key']] = json_decode($row['value'], true);
+            }
+
+            return $results;
+        } catch (\PDOException $e) {
+            return [];
+        }
+    }
     
     public function query(array $criteria): array {
         if (!$this->connected) {
@@ -191,5 +214,49 @@ class MySQLAdapter implements StorageAdapterInterface {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
         
         $this->connection->exec($sql);
+    }
+
+    public function addToSet(string $key, string $value, array $metadata = []): bool {
+        $current = $this->read($key) ?? [];
+        if (!is_array($current)) {
+            $current = [];
+        }
+
+        if (!in_array($value, $current)) {
+            $current[] = $value;
+            $existingMeta = $this->getMetadata($key);
+            $newMeta = array_merge($existingMeta, $metadata);
+            return $this->write($key, $current, $newMeta);
+        }
+        return true;
+    }
+
+    public function removeFromSet(string $key, string $value, array $metadata = []): bool {
+        $current = $this->read($key) ?? [];
+        if (!is_array($current)) {
+            return false;
+        }
+
+        $keyIndex = array_search($value, $current);
+        if ($keyIndex !== false) {
+            array_splice($current, $keyIndex, 1);
+            $existingMeta = $this->getMetadata($key);
+            $newMeta = array_merge($existingMeta, $metadata);
+            return $this->write($key, $current, $newMeta);
+        }
+        return true;
+    }
+
+    public function getSetMembers(string $key): array {
+        $current = $this->read($key);
+        return is_array($current) ? $current : [];
+    }
+
+    public function isSetMember(string $key, string $value): bool {
+        $current = $this->read($key);
+        if (!is_array($current)) {
+            return false;
+        }
+        return in_array($value, $current);
     }
 }

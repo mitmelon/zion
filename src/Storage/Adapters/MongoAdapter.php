@@ -108,6 +108,25 @@ class MongoAdapter implements StorageAdapterInterface {
             return null;
         }
     }
+
+    public function readMulti(array $keys): array {
+        if (!$this->connected || empty($keys)) {
+            return [];
+        }
+
+        try {
+            $cursor = $this->collection->find(['_id' => ['$in' => $keys]]);
+
+            $results = [];
+            foreach ($cursor as $document) {
+                $results[$document['_id']] = $document['value'];
+            }
+
+            return $results;
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
     
     public function query(array $criteria): array {
         if (!$this->connected) {
@@ -161,5 +180,49 @@ class MongoAdapter implements StorageAdapterInterface {
         }
         
         return $filter;
+    }
+
+    public function addToSet(string $key, string $value, array $metadata = []): bool {
+        $current = $this->read($key) ?? [];
+        if (!is_array($current)) {
+            $current = [];
+        }
+
+        if (!in_array($value, $current)) {
+            $current[] = $value;
+            $existingMeta = $this->getMetadata($key);
+            $newMeta = array_merge($existingMeta, $metadata);
+            return $this->write($key, $current, $newMeta);
+        }
+        return true;
+    }
+
+    public function removeFromSet(string $key, string $value, array $metadata = []): bool {
+        $current = $this->read($key) ?? [];
+        if (!is_array($current)) {
+            return false;
+        }
+
+        $keyIndex = array_search($value, $current);
+        if ($keyIndex !== false) {
+            array_splice($current, $keyIndex, 1);
+            $existingMeta = $this->getMetadata($key);
+            $newMeta = array_merge($existingMeta, $metadata);
+            return $this->write($key, $current, $newMeta);
+        }
+        return true;
+    }
+
+    public function getSetMembers(string $key): array {
+        $current = $this->read($key);
+        return is_array($current) ? $current : [];
+    }
+
+    public function isSetMember(string $key, string $value): bool {
+        $current = $this->read($key);
+        if (!is_array($current)) {
+            return false;
+        }
+        return in_array($value, $current);
     }
 }
