@@ -91,7 +91,7 @@ class EpistemicStatusTracker implements EpistemicStatusInterface {
         $this->validateStatus($status);
         
         $indexKey = "epistemic_index:{$tenantId}:{$status}";
-        $claimIds = $this->storage->read($indexKey) ?? [];
+        $claimIds = $this->storage->getSetMembers($indexKey);
         
         $claims = [];
         foreach ($claimIds as $claimId) {
@@ -243,12 +243,7 @@ class EpistemicStatusTracker implements EpistemicStatusInterface {
      */
     private function updateStatusIndex(string $tenantId, string $status, string $claimId): void {
         $indexKey = "epistemic_index:{$tenantId}:{$status}";
-        $index = $this->storage->read($indexKey) ?? [];
-        
-        if (!in_array($claimId, $index)) {
-            $index[] = $claimId;
-            $this->storage->write($indexKey, $index, ['tenant' => $tenantId]);
-        }
+        $this->storage->addToSet($indexKey, $claimId, ['tenant' => $tenantId]);
     }
     
     private function buildStatusKey(string $tenantId, string $claimId): string {

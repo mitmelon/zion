@@ -420,7 +420,7 @@ class HybridMemoryV2 {
         
         $contradictions = [];
         foreach ($beliefs as $belief) {
-            $c = $this->gnosis->findContradictions($tenantId, $belief['id']);
+            $c = $this->gnosis->findContradictions($tenantId, $belief, $beliefs);
             if (!empty($c)) {
                 $contradictions[] = [
                     'belief_id' => $belief['id'],
@@ -456,7 +456,6 @@ class HybridMemoryV2 {
     }
     
     private function countKeys(string $tenantId, string $pattern): int {
-        $results = $this->storage->query(['pattern' => "{$pattern}:{$tenantId}:*"]);
-        return count($results);
+        return $this->storage->count(['pattern' => "{$pattern}:{$tenantId}:*"]);
     }
 }
