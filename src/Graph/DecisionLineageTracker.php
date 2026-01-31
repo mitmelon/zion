@@ -89,15 +89,19 @@ class DecisionLineageTracker implements DecisionLineageInterface {
         $indexKey = "decision_index:{$tenantId}:claim:{$claimId}";
         $decisionIds = $this->storage->getSetMembers($indexKey);
         
-        $decisions = [];
-        foreach ($decisionIds as $decisionId) {
-            $lineage = $this->getDecisionLineage($tenantId, $decisionId);
-            if ($lineage) {
-                $decisions[] = $lineage;
-            }
+        if (empty($decisionIds)) {
+            return [];
         }
+
+        $keys = [];
+        foreach ($decisionIds as $decisionId) {
+            $keys[] = $this->buildLineageKey($tenantId, $decisionId);
+        }
+
+        $results = $this->storage->readMulti($keys);
         
-        return $decisions;
+        // Filter out empty results and re-index
+        return array_values(array_filter($results));
     }
     
     /**
