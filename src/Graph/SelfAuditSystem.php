@@ -142,7 +142,7 @@ class SelfAuditSystem implements SelfAuditInterface {
             'minority_correct' => count($verifiedCorrect),
             'minority_accuracy' => count($verifiedCorrect) / max(1, count($minorityOpinions)),
             'wisdom_score' => $wisdomScore,
-            'trending' => $this->calculateTrend($tenantId)
+            'trending' => $this->calculateTrend($tenantId, $institutional)
         ];
     }
     
@@ -181,7 +181,7 @@ class SelfAuditSystem implements SelfAuditInterface {
         );
     }
     
-    private function calculateTrend(string $tenantId): string {
+    private function calculateTrend(string $tenantId, array $items = null): string {
         $now = time();
         $day = 86400;
         $week = 7 * $day;
@@ -191,9 +191,11 @@ class SelfAuditSystem implements SelfAuditInterface {
         $prevStart = $now - (2 * $week);
         $prevEnd = $lastStart - 1;
 
-        // Get all institutional items for tenant
-        $pattern = "institutional:{$tenantId}:*";
-        $items = $this->storage->query(['pattern' => $pattern]);
+        // Get all institutional items for tenant if not provided
+        if ($items === null) {
+            $pattern = "institutional:{$tenantId}:*";
+            $items = $this->storage->query(['pattern' => $pattern]);
+        }
 
         $lastCount = 0;
         $prevCount = 0;
