@@ -158,6 +158,53 @@ class PostgresAdapter implements StorageAdapterInterface {
                 $params['pattern'] = $pattern;
             }
             
+            if (isset($criteria['filter'])) {
+                foreach ($criteria['filter'] as $i => $filter) {
+                    $field = $filter['field'];
+                    $op = $filter['operator'];
+                    $val = $filter['value'];
+
+                    $allowedOps = ['>=', '<=', '=', '>', '<', '!='];
+                    if (!in_array($op, $allowedOps)) {
+                        continue;
+                    }
+
+                    $paramName = "filter_{$i}";
+
+                    // Cast to numeric if value is numeric for correct comparison
+                    $cast = is_numeric($val) ? '::numeric' : '';
+
+                    if (is_array($field)) {
+                         $extracts = [];
+                         foreach ($field as $f) {
+                             if (preg_match('/^[a-zA-Z0-9_\.]+$/', $f)) {
+                                 $pathParts = explode('.', $f);
+                                 $jsonPath = '{' . implode(',', $pathParts) . '}';
+                                 $extracts[] = "value #>> '{$jsonPath}'";
+                             }
+                         }
+                         if (empty($extracts)) {
+                             continue;
+                         }
+
+                         $coalesce = "COALESCE(" . implode(', ', $extracts) . ")";
+                         $where[] = "({$coalesce}){$cast} {$op} :{$paramName}";
+                    } else {
+                        if (!preg_match('/^[a-zA-Z0-9_\.]+$/', $field)) {
+                            continue;
+                        }
+
+                        // Handle nested keys
+                        $pathParts = explode('.', $field);
+                        $jsonPath = '{' . implode(',', $pathParts) . '}';
+
+                        $where[] = "(value #>> '{$jsonPath}'){$cast} {$op} :{$paramName}";
+                    }
+
+                    $params[$paramName] = $val;
+                }
+            }
+
             $sql = "SELECT value FROM {$this->tableName}";
             if (!empty($where)) {
                 $sql .= " WHERE " . implode(' AND ', $where);
@@ -176,7 +223,65 @@ class PostgresAdapter implements StorageAdapterInterface {
             return [];
         }
     }
+
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        try {
+            $where = [];
+            $params = [];
+
+            if (isset($criteria['pattern'])) {
+                $pattern = str_replace('*', '%', $criteria['pattern']);
+                $where[] = "key LIKE :pattern";
+                $params['pattern'] = $pattern;
+            }
+
+            $sql = "SELECT COUNT(*) FROM {$this->tableName}";
+            if (!empty($where)) {
+                $sql .= " WHERE " . implode(' AND ', $where);
+            }
+
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+
+            return (int)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            return 0;
+        }
+    }
     
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        try {
+            $where = [];
+            $params = [];
+
+            if (isset($criteria['pattern'])) {
+                $pattern = str_replace('*', '%', $criteria['pattern']);
+                $where[] = "key LIKE :pattern";
+                $params['pattern'] = $pattern;
+            }
+
+            $sql = "SELECT COUNT(*) FROM {$this->tableName}";
+            if (!empty($where)) {
+                $sql .= " WHERE " . implode(' AND ', $where);
+            }
+
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+
+            return (int)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            return 0;
+        }
+    }
+
     public function exists(string $key): bool {
         if (!$this->connected) {
             return false;

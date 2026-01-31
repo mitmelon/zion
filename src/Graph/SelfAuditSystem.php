@@ -86,7 +86,25 @@ class SelfAuditSystem implements SelfAuditInterface {
         
         // Get all claims in period
         $pattern = "institutional:{$tenantId}:*";
-        $allClaims = $this->storage->query(['pattern' => $pattern]);
+
+        // Optimize: Filter by promoted_at or timestamp (fallback) at the storage level
+        $criteria = [
+            'pattern' => $pattern,
+            'filter' => [
+                [
+                    'field' => ['promoted_at', 'timestamp'],
+                    'operator' => '>=',
+                    'value' => $startTime
+                ],
+                [
+                    'field' => ['promoted_at', 'timestamp'],
+                    'operator' => '<=',
+                    'value' => $endTime
+                ]
+            ]
+        ];
+
+        $allClaims = $this->storage->query($criteria);
         
         $periodClaims = array_filter($allClaims, function($claim) use ($startTime, $endTime) {
             $timestamp = $claim['promoted_at'] ?? $claim['timestamp'] ?? 0;
@@ -142,7 +160,7 @@ class SelfAuditSystem implements SelfAuditInterface {
             'minority_correct' => count($verifiedCorrect),
             'minority_accuracy' => count($verifiedCorrect) / max(1, count($minorityOpinions)),
             'wisdom_score' => $wisdomScore,
-            'trending' => $this->calculateTrend($tenantId)
+            'trending' => $this->calculateTrend($tenantId, $institutional)
         ];
     }
     
@@ -181,7 +199,7 @@ class SelfAuditSystem implements SelfAuditInterface {
         );
     }
     
-    private function calculateTrend(string $tenantId): string {
+    private function calculateTrend(string $tenantId, array $items = null): string {
         $now = time();
         $day = 86400;
         $week = 7 * $day;
@@ -191,9 +209,11 @@ class SelfAuditSystem implements SelfAuditInterface {
         $prevStart = $now - (2 * $week);
         $prevEnd = $lastStart - 1;
 
-        // Get all institutional items for tenant
-        $pattern = "institutional:{$tenantId}:*";
-        $items = $this->storage->query(['pattern' => $pattern]);
+        // Get all institutional items for tenant if not provided
+        if ($items === null) {
+            $pattern = "institutional:{$tenantId}:*";
+            $items = $this->storage->query(['pattern' => $pattern]);
+        }
 
         $lastCount = 0;
         $prevCount = 0;

@@ -148,18 +148,9 @@ class DecisionLineageTracker implements DecisionLineageInterface {
      */
     private function analyzeDownstreamImpact(string $tenantId, string $decisionId): array {
         // Find decisions that depend on this one
-        $pattern = "decision_lineage:{$tenantId}:*";
-        $allDecisions = $this->storage->query(['pattern' => $pattern]);
-        
-        $dependentDecisions = [];
-        foreach ($allDecisions as $decision) {
-            $usedClaims = array_column($decision['claims_used'] ?? [], 'claim_id');
-            
-            // If this decision ID appears as a used claim
-            if (in_array($decisionId, $usedClaims)) {
-                $dependentDecisions[] = $decision['decision_id'];
-            }
-        }
+        // Use inverted index instead of full scan
+        $indexKey = $this->getClaimIndexKey($tenantId, $decisionId);
+        $dependentDecisions = $this->storage->read($indexKey) ?? [];
         
         return [
             'dependent_decisions' => $dependentDecisions,
@@ -177,5 +168,9 @@ class DecisionLineageTracker implements DecisionLineageInterface {
     
     private function buildLineageKey(string $tenantId, string $decisionId): string {
         return "decision_lineage:{$tenantId}:{$decisionId}";
+    }
+
+    private function getClaimIndexKey(string $tenantId, string $claimId): string {
+        return "decision_index:{$tenantId}:claim:{$claimId}";
     }
 }
