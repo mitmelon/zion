@@ -179,6 +179,55 @@ class MongoAdapter implements StorageAdapterInterface {
             }
         }
         
+        if (isset($criteria['filter'])) {
+            foreach ($criteria['filter'] as $f) {
+                $field = $f['field'];
+                $op = $f['operator'];
+                $val = $f['value'];
+
+                $mongoOp = match($op) {
+                    '>=' => '$gte',
+                    '<=' => '$lte',
+                    '>' => '$gt',
+                    '<' => '$lt',
+                    '=' => '$eq',
+                    '!=' => '$ne',
+                    default => null
+                };
+
+                if ($mongoOp) {
+                    if (is_array($field)) {
+                        // Coalesce using $expr and $ifNull
+                        $exprs = array_map(fn($f) => "\$value.{$f}", $field);
+
+                        if (!isset($filter['$and'])) {
+                            $filter['$and'] = [];
+                        }
+
+                        $filter['$and'][] = [
+                            '$expr' => [
+                                $mongoOp => [
+                                    ['$ifNull' => $exprs],
+                                    $val
+                                ]
+                            ]
+                        ];
+                    } else {
+                        // Target 'value' field in document
+                        $targetField = "value.{$field}";
+
+                        if (!isset($filter[$targetField])) {
+                            $filter[$targetField] = [];
+                        }
+
+                        if (is_array($filter[$targetField])) {
+                            $filter[$targetField][$mongoOp] = $val;
+                        }
+                    }
+                }
+            }
+        }
+
         return $filter;
     }
 

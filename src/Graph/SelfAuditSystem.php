@@ -86,7 +86,25 @@ class SelfAuditSystem implements SelfAuditInterface {
         
         // Get all claims in period
         $pattern = "institutional:{$tenantId}:*";
-        $allClaims = $this->storage->query(['pattern' => $pattern]);
+
+        // Optimize: Filter by promoted_at or timestamp (fallback) at the storage level
+        $criteria = [
+            'pattern' => $pattern,
+            'filter' => [
+                [
+                    'field' => ['promoted_at', 'timestamp'],
+                    'operator' => '>=',
+                    'value' => $startTime
+                ],
+                [
+                    'field' => ['promoted_at', 'timestamp'],
+                    'operator' => '<=',
+                    'value' => $endTime
+                ]
+            ]
+        ];
+
+        $allClaims = $this->storage->query($criteria);
         
         $periodClaims = array_filter($allClaims, function($claim) use ($startTime, $endTime) {
             $timestamp = $claim['promoted_at'] ?? $claim['timestamp'] ?? 0;

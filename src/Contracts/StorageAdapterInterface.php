@@ -16,6 +16,19 @@ interface StorageAdapterInterface {
     public function writeMulti(array $items): bool;
     public function read(string $key): mixed;
     public function readMulti(array $keys): array;
+
+    /**
+     * Query items based on criteria
+     *
+     * Supported criteria:
+     * - pattern: string (glob pattern for keys, e.g. "prefix:*")
+     * - filter: array (list of filters to apply to value/metadata)
+     *   [
+     *     'field' => string|array, // Field path or array of paths for coalesce (use first non-null)
+     *     'operator' => string, // ">=", "<=", "=", ">", "<"
+     *     'value' => mixed
+     *   ]
+     */
     public function query(array $criteria): array;
     public function exists(string $key): bool;
     public function getMetadata(string $key): array;
