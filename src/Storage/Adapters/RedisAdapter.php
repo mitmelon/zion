@@ -270,4 +270,24 @@ class RedisAdapter implements StorageAdapterInterface {
             return false;
         }
     }
+
+    public function getSetCount(string $key): int {
+        if (!$this->connected) {
+            return 0;
+        }
+        try {
+            return $this->redis->sCard($key);
+        } catch (\RedisException $e) {
+            if (strpos($e->getMessage(), 'WRONGTYPE') !== false) {
+                // Fallback: Read as JSON String
+                $oldData = $this->redis->get($key);
+                if ($oldData !== false) {
+                    $decoded = json_decode($oldData, true);
+                    $items = $decoded['value'] ?? [];
+                    return is_array($items) ? count($items) : 0;
+                }
+            }
+            return 0;
+        }
+    }
 }
