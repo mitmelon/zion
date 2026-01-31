@@ -148,6 +148,37 @@ class RedisAdapter implements StorageAdapterInterface {
         return $results;
     }
     
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        $pattern = $criteria['pattern'] ?? '*';
+        $count = 0;
+        $iterator = null;
+        $seen = [];
+
+        do {
+            // Use SCAN instead of KEYS to avoid blocking the Redis server
+            // Only counting keys, no retrieval of values
+            $keys = $this->redis->scan($iterator, $pattern, 1000);
+
+            if ($keys === false) {
+                break;
+            }
+
+            foreach ($keys as $key) {
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $count++;
+            }
+        } while ($iterator > 0);
+
+        return $count;
+    }
+
     public function exists(string $key): bool {
         if (!$this->connected) {
             return false;

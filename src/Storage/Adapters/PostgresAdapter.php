@@ -177,6 +177,35 @@ class PostgresAdapter implements StorageAdapterInterface {
         }
     }
     
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        try {
+            $where = [];
+            $params = [];
+
+            if (isset($criteria['pattern'])) {
+                $pattern = str_replace('*', '%', $criteria['pattern']);
+                $where[] = "key LIKE :pattern";
+                $params['pattern'] = $pattern;
+            }
+
+            $sql = "SELECT COUNT(*) FROM {$this->tableName}";
+            if (!empty($where)) {
+                $sql .= " WHERE " . implode(' AND ', $where);
+            }
+
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+
+            return (int)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            return 0;
+        }
+    }
+
     public function exists(string $key): bool {
         if (!$this->connected) {
             return false;

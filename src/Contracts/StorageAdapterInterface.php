@@ -17,6 +17,7 @@ interface StorageAdapterInterface {
     public function read(string $key): mixed;
     public function readMulti(array $keys): array;
     public function query(array $criteria): array;
+    public function count(array $criteria): int;
     public function exists(string $key): bool;
     public function getMetadata(string $key): array;
 
