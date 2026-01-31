@@ -39,4 +39,5 @@ interface StorageAdapterInterface {
     public function removeFromSet(string $key, string $value, array $metadata = []): bool;
     public function getSetMembers(string $key): array;
     public function isSetMember(string $key, string $value): bool;
+    public function getSetCount(string $key): int;
 }

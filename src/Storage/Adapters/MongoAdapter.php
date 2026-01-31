@@ -300,4 +300,9 @@ class MongoAdapter implements StorageAdapterInterface {
         }
         return in_array($value, $current);
     }
+
+    public function getSetCount(string $key): int {
+        $current = $this->read($key);
+        return is_array($current) ? count($current) : 0;
+    }
 }

@@ -209,23 +209,13 @@ class SelfAuditSystem implements SelfAuditInterface {
         $prevStart = $now - (2 * $week);
         $prevEnd = $lastStart - 1;
 
-        // Get all institutional items for tenant if not provided
-        if ($items === null) {
-            $pattern = "institutional:{$tenantId}:*";
-            $items = $this->storage->query(['pattern' => $pattern]);
+        // Check if indices are built (Optimization)
+        if (!$this->storage->exists("institutional_indices_built:{$tenantId}")) {
+            $this->buildInstitutionalIndices($tenantId);
         }
 
-        $lastCount = 0;
-        $prevCount = 0;
-
-        foreach ($items as $it) {
-            $ts = $it['promoted_at'] ?? $it['timestamp'] ?? 0;
-            if ($ts >= $lastStart && $ts <= $now) {
-                $lastCount++;
-            } elseif ($ts >= $prevStart && $ts <= $prevEnd) {
-                $prevCount++;
-            }
-        }
+        $lastCount = $this->countItemsInPeriod($tenantId, $lastStart, $now);
+        $prevCount = $this->countItemsInPeriod($tenantId, $prevStart, $prevEnd);
 
         // Compute percent change safely
         if ($prevCount === 0) {
@@ -269,5 +259,63 @@ class SelfAuditSystem implements SelfAuditInterface {
         }
 
         return $trend;
+    }
+
+    private function buildInstitutionalIndices(string $tenantId): void {
+        $pattern = "institutional:{$tenantId}:*";
+        $items = $this->storage->query(['pattern' => $pattern]);
+
+        foreach ($items as $item) {
+            $ts = $item['promoted_at'] ?? $item['timestamp'] ?? 0;
+            if ($ts > 0) {
+                $date = date('Ymd', $ts);
+                $indexKey = "index:institutional:{$tenantId}:{$date}";
+                $this->storage->addToSet($indexKey, $item['id'], ['type' => 'institutional_index']);
+            }
+        }
+        $this->storage->write("institutional_indices_built:{$tenantId}", true, ['type' => 'system_flag']);
+    }
+
+    private function countItemsInPeriod(string $tenantId, int $start, int $end): int {
+        $count = 0;
+
+        // Loop through days
+        $current = $start;
+        while ($current <= $end) {
+            $date = date('Ymd', $current);
+            $nextDay = strtotime("$date +1 day");
+            $dayStart = strtotime($date); // 00:00:00
+            $dayEnd = $nextDay - 1; // 23:59:59
+
+            $indexKey = "index:institutional:{$tenantId}:{$date}";
+
+            // Check if day is FULLY inside the range [start, end]
+            if ($dayStart >= $start && $dayEnd <= $end) {
+                // Use fast count
+                $count += $this->storage->getSetCount($indexKey);
+            } else {
+                // Partial day: fetch members and check precise timestamp
+                $ids = $this->storage->getSetMembers($indexKey);
+                if (!empty($ids)) {
+                    // Fetch items to check timestamp
+                    // Construct keys
+                    $keys = array_map(fn($id) => "institutional:{$tenantId}:{$id}", $ids);
+                    $items = $this->storage->readMulti($keys);
+
+                    foreach ($items as $item) {
+                        if (!$item) continue;
+                        $ts = $item['promoted_at'] ?? $item['timestamp'] ?? 0;
+                        if ($ts >= $start && $ts <= $end) {
+                            $count++;
+                        }
+                    }
+                }
+            }
+
+            // Move to next day
+            $current = $nextDay;
+        }
+
+        return $count;
     }
 }
