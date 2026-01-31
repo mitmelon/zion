@@ -209,9 +209,27 @@ class SelfAuditSystem implements SelfAuditInterface {
         $prevStart = $now - (2 * $week);
         $prevEnd = $lastStart - 1;
 
-        // Check if indices are built (Optimization)
-        if (!$this->storage->exists("institutional_indices_built:{$tenantId}")) {
-            $this->buildInstitutionalIndices($tenantId);
+        // Optimization: Try to use time-bucketed indices if available
+        $indexedItems = $this->fetchItemsFromIndices($tenantId, $prevStart, $now);
+
+        if ($indexedItems !== null) {
+            $items = $indexedItems;
+        } else {
+            // Fallback: Scan all items (slow)
+            $pattern = "institutional:{$tenantId}:*";
+            $items = $this->storage->query(['pattern' => $pattern]);
+        }
+
+        $lastCount = 0;
+        $prevCount = 0;
+
+        foreach ($items as $it) {
+            $ts = $it['promoted_at'] ?? $it['timestamp'] ?? 0;
+            if ($ts >= $lastStart && $ts <= $now) {
+                $lastCount++;
+            } elseif ($ts >= $prevStart && $ts <= $prevEnd) {
+                $prevCount++;
+            }
         }
 
         $lastCount = $this->countItemsInPeriod($tenantId, $lastStart, $now);
@@ -261,61 +279,37 @@ class SelfAuditSystem implements SelfAuditInterface {
         return $trend;
     }
 
-    private function buildInstitutionalIndices(string $tenantId): void {
-        $pattern = "institutional:{$tenantId}:*";
-        $items = $this->storage->query(['pattern' => $pattern]);
-
-        foreach ($items as $item) {
-            $ts = $item['promoted_at'] ?? $item['timestamp'] ?? 0;
-            if ($ts > 0) {
-                $date = date('Ymd', $ts);
-                $indexKey = "index:institutional:{$tenantId}:{$date}";
-                $this->storage->addToSet($indexKey, $item['id'], ['type' => 'institutional_index']);
-            }
-        }
-        $this->storage->write("institutional_indices_built:{$tenantId}", true, ['type' => 'system_flag']);
-    }
-
-    private function countItemsInPeriod(string $tenantId, int $start, int $end): int {
-        $count = 0;
-
-        // Loop through days
-        $current = $start;
-        while ($current <= $end) {
-            $date = date('Ymd', $current);
-            $nextDay = strtotime("$date +1 day");
-            $dayStart = strtotime($date); // 00:00:00
-            $dayEnd = $nextDay - 1; // 23:59:59
-
-            $indexKey = "index:institutional:{$tenantId}:{$date}";
-
-            // Check if day is FULLY inside the range [start, end]
-            if ($dayStart >= $start && $dayEnd <= $end) {
-                // Use fast count
-                $count += $this->storage->getSetCount($indexKey);
-            } else {
-                // Partial day: fetch members and check precise timestamp
-                $ids = $this->storage->getSetMembers($indexKey);
-                if (!empty($ids)) {
-                    // Fetch items to check timestamp
-                    // Construct keys
-                    $keys = array_map(fn($id) => "institutional:{$tenantId}:{$id}", $ids);
-                    $items = $this->storage->readMulti($keys);
-
-                    foreach ($items as $item) {
-                        if (!$item) continue;
-                        $ts = $item['promoted_at'] ?? $item['timestamp'] ?? 0;
-                        if ($ts >= $start && $ts <= $end) {
-                            $count++;
-                        }
-                    }
-                }
-            }
-
-            // Move to next day
-            $current = $nextDay;
+    private function fetchItemsFromIndices(string $tenantId, int $start, int $end): ?array {
+        // Safety check: Ensure migration has run for this tenant
+        // Without migration, indices might be partial or missing, leading to incorrect calculations
+        if (!$this->storage->exists("institutional_index:migration_complete:{$tenantId}")) {
+            return null;
         }
 
-        return $count;
+        $startDate = new \DateTime("@$start");
+        $endDate = new \DateTime("@$end");
+        $startDate->setTime(0, 0, 0);
+        $endDate->setTime(23, 59, 59);
+
+        $ids = [];
+
+        $current = clone $startDate;
+        while ($current <= $endDate) {
+             $key = "institutional_index:{$tenantId}:daily:" . $current->format('Y-m-d');
+             // We can optimistically call getSetMembers. If key doesn't exist, it returns empty array.
+             // Since migration is confirmed, empty array means no items for that day.
+             $dayIds = $this->storage->getSetMembers($key);
+             foreach ($dayIds as $id) {
+                 $ids[$id] = true;
+             }
+             $current->modify('+1 day');
+        }
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        $keys = array_map(fn($id) => "institutional:{$tenantId}:{$id}", array_keys($ids));
+        return $this->storage->readMulti($keys);
     }
 }

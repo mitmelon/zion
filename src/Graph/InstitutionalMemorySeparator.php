@@ -198,7 +198,8 @@ class InstitutionalMemorySeparator implements InstitutionalMemoryInterface {
         $key = "institutional:{$tenantId}:{$claim['id']}";
         
         $institutional = $claim;
-        $institutional['promoted_at'] = time();
+        $timestamp = time();
+        $institutional['promoted_at'] = $timestamp;
         $institutional['institutional'] = true;
         
         $this->storage->write($key, $institutional, [
@@ -206,12 +207,9 @@ class InstitutionalMemorySeparator implements InstitutionalMemoryInterface {
             'type' => 'institutional_memory'
         ]);
 
-        // Add to daily index for performance optimization
-        $date = date('Ymd', $institutional['promoted_at']);
-        $indexKey = "index:institutional:{$tenantId}:{$date}";
-        $this->storage->addToSet($indexKey, $claim['id'], ['type' => 'institutional_index']);
-
-        // Mark that indices are being maintained
-        $this->storage->write("institutional_indices_built:{$tenantId}", true, ['type' => 'system_flag']);
+        // Add to daily index for efficient trend calculation
+        $dayKey = date('Y-m-d', $timestamp);
+        $indexKey = "institutional_index:{$tenantId}:daily:{$dayKey}";
+        $this->storage->addToSet($indexKey, $claim['id'], ['tenant' => $tenantId, 'type' => 'institutional_index']);
     }
 }
