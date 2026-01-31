@@ -61,10 +61,13 @@ class GraphIngestor implements GraphIngestorInterface {
             'claims_processed' => 0
         ];
         
-        foreach ($claims as $claim) {
+        // Batch extract structures
+        $structures = $this->extractStructureBatch($claims);
+
+        foreach ($claims as $i => $claim) {
             $result = $this->ingestClaim($tenantId, $claim, [
                 'session_id' => $sessionId
-            ]);
+            ], $structures[$i] ?? null);
             
             $stats['entities_created'] += $result['entities'];
             $stats['relations_created'] += $result['relations'];
@@ -86,12 +89,12 @@ class GraphIngestor implements GraphIngestorInterface {
      * Ingest single claim into graph
      * Normalizes claims into entities and relations
      */
-    public function ingestClaim(string $tenantId, array $claim, array $context) {
+    public function ingestClaim(string $tenantId, array $claim, array $context, ?array $preExtracted = null): array {
         $claimId = $claim['id'] ?? uniqid('claim_');
         $confidence = $claim['confidence']['mean'] ?? 0.5;
         
         // Extract entities and relations from claim
-        $extracted = $this->extractStructure($claim);
+        $extracted = $preExtracted ?? $this->extractStructure($claim);
         
         $stats = ['entities' => 0, 'relations' => 0];
         
@@ -156,6 +159,46 @@ class GraphIngestor implements GraphIngestorInterface {
         ];
     }
     
+    /**
+     * Batch extract structures for multiple claims
+     */
+    private function extractStructureBatch(array $claims): array {
+        $texts = [];
+        foreach ($claims as $i => $claim) {
+            $texts[$i] = $claim['claim'] ?? $claim['text'] ?? '';
+        }
+
+        try {
+            $entitiesBatch = $this->ai->extractEntitiesBatch($texts);
+            $relationsBatch = $this->ai->extractRelationshipsBatch($texts);
+        } catch (\Exception $e) {
+            return []; // Fallback to individual extraction
+        }
+
+        $results = [];
+        foreach ($claims as $i => $claim) {
+            $topic = $claim['topic'] ?? 'unknown';
+            $entities = $entitiesBatch[$i] ?? [];
+            $relations = $relationsBatch[$i] ?? [];
+
+            // Ensure topic is an entity
+            if (!empty($topic) && $topic !== 'unknown') {
+                $entities[] = [
+                    'name' => $topic,
+                    'type' => 'topic',
+                    'attributes' => []
+                ];
+            }
+
+            $results[$i] = [
+                'entities' => $entities,
+                'relations' => $relations
+            ];
+        }
+
+        return $results;
+    }
+
     /**
      * Extract entities and relations from claim
      * Uses AI for structured extraction

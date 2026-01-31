@@ -22,7 +22,7 @@ interface GraphIngestorInterface {
     /**
      * Ingest single claim into graph
      */
-    public function ingestClaim(string $tenantId, array $claim, array $context): void;
+    public function ingestClaim(string $tenantId, array $claim, array $context, ?array $preExtracted = null): array;
     
     /**
      * Get ingestion statistics
