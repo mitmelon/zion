@@ -87,7 +87,7 @@ class DecisionLineageTracker implements DecisionLineageInterface {
      */
     public function getDownstreamDecisions(string $tenantId, string $claimId): array {
         $indexKey = "decision_index:{$tenantId}:claim:{$claimId}";
-        $decisionIds = $this->storage->read($indexKey) ?? [];
+        $decisionIds = $this->storage->getSetMembers($indexKey);
         
         $decisions = [];
         foreach ($decisionIds as $decisionId) {
@@ -148,18 +148,9 @@ class DecisionLineageTracker implements DecisionLineageInterface {
      */
     private function analyzeDownstreamImpact(string $tenantId, string $decisionId): array {
         // Find decisions that depend on this one
-        $pattern = "decision_lineage:{$tenantId}:*";
-        $allDecisions = $this->storage->query(['pattern' => $pattern]);
-        
-        $dependentDecisions = [];
-        foreach ($allDecisions as $decision) {
-            $usedClaims = array_column($decision['claims_used'] ?? [], 'claim_id');
-            
-            // If this decision ID appears as a used claim
-            if (in_array($decisionId, $usedClaims)) {
-                $dependentDecisions[] = $decision['decision_id'];
-            }
-        }
+        // Use inverted index instead of full scan
+        $indexKey = $this->getClaimIndexKey($tenantId, $decisionId);
+        $dependentDecisions = $this->storage->read($indexKey) ?? [];
         
         return [
             'dependent_decisions' => $dependentDecisions,
@@ -172,15 +163,14 @@ class DecisionLineageTracker implements DecisionLineageInterface {
      */
     private function indexDecisionByClaim(string $tenantId, string $claimId, string $decisionId): void {
         $indexKey = "decision_index:{$tenantId}:claim:{$claimId}";
-        $index = $this->storage->read($indexKey) ?? [];
-        
-        if (!in_array($decisionId, $index)) {
-            $index[] = $decisionId;
-            $this->storage->write($indexKey, $index, ['tenant' => $tenantId]);
-        }
+        $this->storage->addToSet($indexKey, $decisionId, ['tenant' => $tenantId]);
     }
     
     private function buildLineageKey(string $tenantId, string $decisionId): string {
         return "decision_lineage:{$tenantId}:{$decisionId}";
+    }
+
+    private function getClaimIndexKey(string $tenantId, string $claimId): string {
+        return "decision_index:{$tenantId}:claim:{$claimId}";
     }
 }

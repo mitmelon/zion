@@ -120,6 +120,8 @@ class RedisAdapter implements StorageAdapterInterface {
         }
         
         $pattern = $criteria['pattern'] ?? '*';
+        $filters = $criteria['filter'] ?? [];
+
         $results = [];
         $iterator = null;
         $seen = [];
@@ -140,14 +142,119 @@ class RedisAdapter implements StorageAdapterInterface {
 
                 $value = $this->read($key);
                 if ($value !== null) {
-                    $results[] = $value;
+                    // Check filters
+                    $match = true;
+                    if (!empty($filters)) {
+                        foreach ($filters as $filter) {
+                            $field = $filter['field'];
+                            $op = $filter['operator'];
+                            $val = $filter['value'];
+
+                            $fieldVal = null;
+                            if (is_array($field)) {
+                                foreach ($field as $f) {
+                                    if (isset($value[$f])) {
+                                        $fieldVal = $value[$f];
+                                        break;
+                                    }
+                                }
+                            } else {
+                                $fieldVal = $value[$field] ?? null;
+                            }
+
+                            if ($fieldVal === null) {
+                                $match = false;
+                                break;
+                            }
+
+                            $isMatch = match($op) {
+                                '>=' => $fieldVal >= $val,
+                                '<=' => $fieldVal <= $val,
+                                '>' => $fieldVal > $val,
+                                '<' => $fieldVal < $val,
+                                '=' => $fieldVal == $val,
+                                '!=' => $fieldVal != $val,
+                                default => false
+                            };
+
+                            if (!$isMatch) {
+                                $match = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($match) {
+                        $results[] = $value;
+                    }
                 }
             }
         } while ($iterator > 0);
         
         return $results;
     }
+
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        $pattern = $criteria['pattern'] ?? '*';
+        $iterator = null;
+        $seen = [];
+        $count = 0;
+
+        do {
+            // Use SCAN with a larger batch size for counting
+            $keys = $this->redis->scan($iterator, $pattern, 1000);
+
+            if ($keys === false) {
+                break;
+            }
+
+            foreach ($keys as $key) {
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $count++;
+            }
+        } while ($iterator > 0);
+
+        return $count;
+    }
     
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        $pattern = $criteria['pattern'] ?? '*';
+        $count = 0;
+        $iterator = null;
+        $seen = [];
+
+        do {
+            // Use SCAN instead of KEYS to avoid blocking the Redis server
+            // Only counting keys, no retrieval of values
+            $keys = $this->redis->scan($iterator, $pattern, 1000);
+
+            if ($keys === false) {
+                break;
+            }
+
+            foreach ($keys as $key) {
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $count++;
+            }
+        } while ($iterator > 0);
+
+        return $count;
+    }
+
     public function exists(string $key): bool {
         if (!$this->connected) {
             return false;

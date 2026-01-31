@@ -158,6 +158,47 @@ class MySQLAdapter implements StorageAdapterInterface {
                 $params['pattern'] = $pattern;
             }
             
+            if (isset($criteria['filter'])) {
+                foreach ($criteria['filter'] as $i => $filter) {
+                    $field = $filter['field'];
+                    $op = $filter['operator'];
+                    $val = $filter['value'];
+
+                    $allowedOps = ['>=', '<=', '=', '>', '<', '!='];
+                    if (!in_array($op, $allowedOps)) {
+                        continue;
+                    }
+
+                    $paramName = "filter_{$i}";
+
+                    if (is_array($field)) {
+                        // Handle fallback logic (COALESCE)
+                        $extracts = [];
+                        foreach ($field as $f) {
+                            if (preg_match('/^[a-zA-Z0-9_\.]+$/', $f)) {
+                                $extracts[] = "JSON_EXTRACT(`value`, '$.{$f}')";
+                            }
+                        }
+                        if (empty($extracts)) {
+                            continue;
+                        }
+
+                        $coalesce = "COALESCE(" . implode(', ', $extracts) . ")";
+                        $where[] = "{$coalesce} {$op} :{$paramName}";
+                    } else {
+                        // Sanitize field path for JSON extraction
+                        // Only allow alphanumeric and underscores and dots
+                        if (!preg_match('/^[a-zA-Z0-9_\.]+$/', $field)) {
+                            continue;
+                        }
+
+                        $where[] = "JSON_EXTRACT(`value`, '$.{$field}') {$op} :{$paramName}";
+                    }
+
+                    $params[$paramName] = $val;
+                }
+            }
+
             $sql = "SELECT `value` FROM {$this->tableName}";
             if (!empty($where)) {
                 $sql .= " WHERE " . implode(' AND ', $where);
@@ -176,7 +217,65 @@ class MySQLAdapter implements StorageAdapterInterface {
             return [];
         }
     }
+
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        try {
+            $where = [];
+            $params = [];
+
+            if (isset($criteria['pattern'])) {
+                $pattern = str_replace('*', '%', $criteria['pattern']);
+                $where[] = "`key` LIKE :pattern";
+                $params['pattern'] = $pattern;
+            }
+
+            $sql = "SELECT COUNT(*) FROM {$this->tableName}";
+            if (!empty($where)) {
+                $sql .= " WHERE " . implode(' AND ', $where);
+            }
+
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+
+            return (int)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            return 0;
+        }
+    }
     
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        try {
+            $where = [];
+            $params = [];
+
+            if (isset($criteria['pattern'])) {
+                $pattern = str_replace('*', '%', $criteria['pattern']);
+                $where[] = "`key` LIKE :pattern";
+                $params['pattern'] = $pattern;
+            }
+
+            $sql = "SELECT COUNT(*) FROM {$this->tableName}";
+            if (!empty($where)) {
+                $sql .= " WHERE " . implode(' AND ', $where);
+            }
+
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+
+            return (int)$stmt->fetchColumn();
+        } catch (\PDOException $e) {
+            return 0;
+        }
+    }
+
     public function exists(string $key): bool {
         if (!$this->connected) {
             return false;

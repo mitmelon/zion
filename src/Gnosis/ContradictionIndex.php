@@ -23,10 +23,14 @@ class ContradictionIndex {
         $this->ai = $ai;
     }
     
-    public function find(string $tenantId, string $claim, array $belief): array {
+    public function find(string $tenantId, string $claim, array $belief, ?array $existingBeliefs = null): array {
         // Get all active beliefs
-        $pattern = "gnosis:{$tenantId}:belief:*";
-        $allBeliefs = $this->storage->query(['pattern' => $pattern]);
+        if ($existingBeliefs === null) {
+            $pattern = "gnosis:{$tenantId}:belief:*";
+            $allBeliefs = $this->storage->query(['pattern' => $pattern]);
+        } else {
+            $allBeliefs = $existingBeliefs;
+        }
         
         $contradictions = [];
         
