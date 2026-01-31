@@ -144,17 +144,17 @@ class GraphIngestor implements GraphIngestorInterface {
      */
     public function getIngestionStats(string $tenantId): array {
         // Count entities and relations
-        $entities = $this->storage->query([
+        $entitiesCount = $this->storage->count([
             'pattern' => "graph:entity:{$tenantId}:*"
         ]);
         
-        $relations = $this->storage->query([
+        $relationsCount = $this->storage->count([
             'pattern' => "graph:relation:{$tenantId}:*"
         ]);
         
         return [
-            'total_entities' => count($entities),
-            'total_relations' => count($relations),
+            'total_entities' => $entitiesCount,
+            'total_relations' => $relationsCount,
             'sessions_ingested' => count($this->ingestedClaims)
         ];
     }
