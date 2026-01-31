@@ -147,6 +147,19 @@ class MongoAdapter implements StorageAdapterInterface {
             return [];
         }
     }
+
+    public function count(array $criteria): int {
+        if (!$this->connected) {
+            return 0;
+        }
+
+        try {
+            $filter = $this->buildMongoFilter($criteria);
+            return $this->collection->countDocuments($filter);
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
     
     public function exists(string $key): bool {
         if (!$this->connected) {
