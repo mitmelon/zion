@@ -13,6 +13,7 @@ namespace ZionXMemory\Contracts;
 interface StorageAdapterInterface {
     public function connect(array $config): bool;
     public function write(string $key, mixed $value, array $metadata): bool;
+    public function writeMulti(array $items): bool;
     public function read(string $key): mixed;
     public function readMulti(array $keys): array;
     public function query(array $criteria): array;

@@ -51,6 +51,28 @@ class RedisAdapter implements StorageAdapterInterface {
         
         return $this->redis->set($key, json_encode($data));
     }
+
+    public function writeMulti(array $items): bool {
+        if (!$this->connected) {
+            return false;
+        }
+
+        $dataMap = [];
+        foreach ($items as $item) {
+            $data = [
+                'value' => $item['value'],
+                'metadata' => $item['metadata'],
+                'written_at' => time()
+            ];
+            $dataMap[$item['key']] = json_encode($data);
+        }
+
+        try {
+            return $this->redis->mset($dataMap);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
     
     public function read(string $key): mixed {
         if (!$this->connected) {

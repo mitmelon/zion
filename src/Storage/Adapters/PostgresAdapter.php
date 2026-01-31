@@ -66,6 +66,41 @@ class PostgresAdapter implements StorageAdapterInterface {
             return false;
         }
     }
+
+    public function writeMulti(array $items): bool {
+        if (!$this->connected) {
+            return false;
+        }
+
+        try {
+            $this->connection->beginTransaction();
+            $stmt = $this->connection->prepare(
+                "INSERT INTO {$this->tableName} (key, value, metadata, written_at)
+                 VALUES (:key, :value, :metadata, :written_at)
+                 ON CONFLICT (key) DO UPDATE SET
+                 value = EXCLUDED.value,
+                 metadata = EXCLUDED.metadata,
+                 written_at = EXCLUDED.written_at"
+            );
+
+            foreach ($items as $item) {
+                $stmt->execute([
+                    'key' => $item['key'],
+                    'value' => json_encode($item['value']),
+                    'metadata' => json_encode($item['metadata']),
+                    'written_at' => time()
+                ]);
+            }
+
+            $this->connection->commit();
+            return true;
+        } catch (\PDOException $e) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+            return false;
+        }
+    }
     
     public function read(string $key): mixed {
         if (!$this->connected) {
