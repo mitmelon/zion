@@ -94,8 +94,14 @@ class EpistemicStatusTracker implements EpistemicStatusInterface {
         $claimIds = $this->storage->getSetMembers($indexKey);
         
         $claims = [];
-        foreach ($claimIds as $claimId) {
-            $statusRecord = $this->getStatus($tenantId, $claimId);
+        if (empty($claimIds)) {
+            return $claims;
+        }
+
+        $keys = array_map(fn($claimId) => $this->buildStatusKey($tenantId, $claimId), $claimIds);
+        $results = $this->storage->readMulti($keys);
+
+        foreach ($results as $statusRecord) {
             if ($statusRecord) {
                 $claims[] = $statusRecord;
             }
